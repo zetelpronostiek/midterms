@@ -1,0 +1,1565 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zetelpronostiek 2026 | US Midterms</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700;800&display=swap" rel="stylesheet">
+
+  <script>
+    try {
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+              display: ['"Space Grotesk"', 'sans-serif'],
+            },
+            colors: {
+              dem: { DEFAULT: '#1D4ED8', hover: '#1E40AF', light: '#EFF6FF', badge: '#DBEAFE', dark: '#172554' },
+              rep: { DEFAULT: '#DC2626', hover: '#B91C1C', light: '#FEF2F2', badge: '#FEE2E2', dark: '#450A0A' }
+            }
+          }
+        }
+      };
+    } catch (e) { console.error('Tailwind niet geladen:', e); }
+  </script>
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; transition: background-color 0.2s, color 0.2s; }
+    .font-logo { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.04em; }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 22px; width: 22px; border-radius: 9999px; background: #0f172a; cursor: pointer;
+      border: 3px solid #ffffff; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.25);
+    }
+    .dark input[type=range]::-webkit-slider-thumb { background: #f8fafc; border: 3px solid #0f172a; }
+    #us-map { width: 100%; height: auto; max-height: 520px; }
+    #us-map path, #us-map circle { stroke: #ffffff; stroke-width: 1px; cursor: pointer; transition: fill 0.2s, stroke 0.2s; }
+    .dark #us-map path, .dark #us-map circle { stroke: #18181b; }
+    #us-map path:hover, #us-map circle:hover { filter: brightness(0.85); stroke: #0f172a !important; stroke-width: 2px !important; }
+    .dark #us-map path:hover, .dark #us-map circle:hover { stroke: #ffffff !important; }
+    #path67 { fill: none !important; stroke: #94a3b8 !important; stroke-width: 2px; cursor: default !important; }
+    #map-tooltip {
+      display: none; position: fixed; pointer-events: none; z-index: 100;
+      background: rgba(15, 23, 42, 0.92); color: #ffffff; backdrop-filter: blur(4px);
+      border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; padding: 6px 10px;
+      font-size: 11px; font-weight: 600; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+      transform: translate(-50%, -120%);
+    }
+    #toastNotification { transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease; }
+    /* Vangnet: modals/tabs blijven verborgen, ook als Tailwind niet laadt */
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 dark:bg-zinc-950 dark:text-zinc-100 min-h-screen flex flex-col antialiased selection:bg-amber-400 selection:text-black">
+
+  <div id="map-tooltip"></div>
+
+  <!-- TOAST MELDING -->
+  <div id="toastNotification" class="fixed top-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 -translate-y-8 flex items-center gap-3 px-6 py-3.5 rounded-2xl bg-emerald-600 text-white font-bold text-sm shadow-2xl border border-emerald-400/50">
+    <i data-lucide="check-circle" class="w-5 h-5 text-white"></i>
+    <span id="toastMessage">Je pronostiek is succesvol opgeslagen!</span>
+  </div>
+
+  <!-- BOVENBALK -->
+  <header class="border-b border-slate-200/90 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md sticky top-0 z-40">
+    <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3 cursor-pointer" onclick="switchTab('pronostiek')">
+        <div class="w-10 h-10 rounded-xl bg-slate-900 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 flex items-center justify-center text-xl shadow-sm">
+          🏛️
+        </div>
+        <div>
+          <h1 class="font-logo font-extrabold text-xl leading-none text-slate-950 dark:text-white flex items-center gap-1.5">
+            Zetelpronostiek <span class="text-[10px] font-sans font-extrabold px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/50 text-dem">2026</span>
+          </h1>
+          <p class="text-[11px] font-medium text-slate-500 dark:text-zinc-400 mt-0.5 flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> US Midterms Slagveld
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 sm:gap-3">
+        <button id="themeToggleBtn" aria-label="Toggle Theme" class="p-2 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-100/60 dark:bg-zinc-800/60 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-600 dark:text-zinc-300 transition">
+          <i data-lucide="sun" id="sunIcon" class="w-4 h-4 hidden"></i>
+          <i data-lucide="moon" id="moonIcon" class="w-4 h-4"></i>
+        </button>
+
+        <button id="loginModalBtn" onclick="openAuthModal()" class="px-4 py-2 text-xs font-bold bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-slate-900 rounded-xl transition shadow-sm flex items-center gap-2">
+          <i data-lucide="log-in" class="w-3.5 h-3.5"></i> Inloggen / Registreren
+        </button>
+
+        <div id="userNavBadge" class="hidden items-center gap-2">
+          <span class="text-xs font-bold px-3 py-1.5 bg-slate-100 dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span id="navUsername">Speler</span>
+          </span>
+          <button id="logoutBtn" title="Uitloggen" class="p-2 rounded-xl border border-slate-200 dark:border-zinc-800 hover:border-red-300 hover:text-red-600 transition text-slate-400">
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TABS -->
+    <nav class="border-t border-slate-200/80 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/40">
+      <div class="max-w-6xl mx-auto px-4 flex gap-2">
+        <button onclick="switchTab('pronostiek')" id="tab-pronostiek" class="tab-btn px-4 py-3 text-sm font-bold border-b-2 border-slate-900 dark:border-zinc-100 text-slate-900 dark:text-zinc-100 flex items-center gap-2 transition">
+          <i data-lucide="vote" class="w-4 h-4 text-amber-500"></i> Pronostiek Invullen
+        </button>
+        <button onclick="switchTab('klassement')" id="tab-klassement" class="tab-btn px-4 py-3 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-900 dark:text-zinc-400 flex items-center gap-2 transition">
+          <i data-lucide="trophy" class="w-4 h-4 text-amber-500"></i> Klassement
+        </button>
+        <button onclick="switchTab('vrienden')" id="tab-vrienden" class="tab-btn px-4 py-3 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-900 dark:text-zinc-400 flex items-center gap-2 transition">
+          <i data-lucide="users" class="w-4 h-4 text-amber-500"></i> Liga's & Vrienden
+        </button>
+      </div>
+    </nav>
+  </header>
+
+  <main class="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 space-y-8">
+
+    <!-- TAB 1: PRONOSTIEK -->
+    <section id="content-pronostiek" class="space-y-8">
+      <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white p-6 sm:p-8 rounded-3xl shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div class="space-y-2 max-w-2xl">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-amber-300 text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
+            <span>🗳️ Senaat 53-47 &bull; Huis Kantelbaar</span>
+          </div>
+          <h2 class="font-logo text-2xl sm:text-3xl font-bold tracking-tight">Voorspel de Amerikaanse Midterms 2026</h2>
+          <p id="predictionNotice" class="text-sm text-slate-300 leading-relaxed">
+            Maak hieronder je keuzes en klik op Pronostiek Opslaan.
+          </p>
+        </div>
+        <div>
+          <button onclick="savePrediction()" class="px-6 py-3.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold rounded-2xl text-sm transition shadow-lg shadow-amber-400/20 flex items-center justify-center gap-2">
+            <i data-lucide="check-circle" class="w-4 h-4"></i> Pronostiek Opslaan
+          </button>
+        </div>
+      </div>
+
+      <!-- KAART -->
+      <div class="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-slate-200/90 dark:border-zinc-800 shadow-sm space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-zinc-800 pb-3">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-500">Interactieve Landkaart</span>
+            <h3 class="text-lg font-bold">Verenigde Staten Strijdkaart</h3>
+          </div>
+          <div class="flex items-center gap-4 text-xs font-semibold">
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-dem"></span> DEM gekozen</span>
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-rep"></span> REP gekozen</span>
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-slate-300 dark:bg-zinc-700"></span> Neutraal / Open</span>
+          </div>
+        </div>
+
+        <div class="w-full overflow-hidden flex justify-center py-2 bg-slate-50/50 dark:bg-zinc-900/50 rounded-2xl border border-slate-100 dark:border-zinc-800 relative">
+          <svg id="us-map" xmlns="http://www.w3.org/2000/svg" viewBox="174 100 959 593">
+            <g id="g5">
+              <path id="HI" data-info="Hawaii (Honolulu)" fill="#CBD5E1" d="M407.1,619.3l1.9-3.6l2.3-0.3l0.3,0.8l-2.1,3.1H407.1z M417.3,615.6l6.1,2.6l2.1-0.3l1.6-3.9 l-0.6-3.4l-4.2-0.5l-4,1.8L417.3,615.6z M448,625.6l3.7,5.5l2.4-0.3l1.1-0.5l1.5,1.3l3.7-0.2l1-1.5l-2.9-1.8l-1.9-3.7l-2.1-3.6 l-5.8,2.9L448,625.6z M468.2,634.5l1.3-1.9l4.7,1l0.6-0.5l6.1,0.6l-0.3,1.3l-2.6,1.5l-4.4-0.3L468.2,634.5z M473.5,639.7l1.9,3.9 l3.1-1.1l0.3-1.6l-1.6-2.1l-3.7-0.3V639.7z M480.5,638.5l2.3-2.9l4.7,2.4l4.4,1.1l4.4,2.7v1.9l-3.6,1.8l-4.8,1l-2.4-1.5 L480.5,638.5z M497.1,654.1l1.6-1.3l3.4,1.6l7.6,3.6l3.4,2.1l1.6,2.4l1.9,4.4l4,2.6l-0.3,1.3l-3.9,3.2l-4.2,1.5l-1.5-0.6l-3.1,1.8 l-2.4,3.2l-2.3,2.9l-1.8-0.2l-3.6-2.6l-0.3-4.5l0.6-2.4l-1.6-5.7l-2.1-1.8l-0.2-2.6l2.3-1l2.1-3.1l0.5-1l-1.6-1.8L497.1,654.1z"/>
+              <path id="AK" data-info="Alaska (Juneau) • Senate Battleground" fill="#CBD5E1" d="M332.1,553.7l-0.3,85.4l1.6,1l3.1,0.2l1.5-1.1h2.6l0.2,2.9l7,6.8l0.5,2.6l3.4-1.9l0.6-0.2l0.3-3.1 l1.5-1.6l1.1-0.2l1.9-1.5l3.1,2.1l0.6,2.9l1.9,1.1l1.1,2.4l3.9,1.8l3.4,6l2.7,3.9l2.3,2.7l1.5,3.7l5,1.8l5.2,2.1l1,4.4l0.5,3.1 l-1,3.4l-1.8,2.3l-1.6-0.8l-1.5-3.1l-2.7-1.5l-1.8-1.1l-0.8,0.8l1.5,2.7l0.2,3.7l-1.1,0.5l-1.9-1.9l-2.1-1.3l0.5,1.6l1.3,1.8 l-0.8,0.8c0,0-0.8-0.3-1.3-1c-0.5-0.6-2.1-3.4-2.1-3.4l-1-2.3c0,0-0.3,1.3-1,1c-0.6-0.3-1.3-1.5-1.3-1.5l1.8-1.9l-1.5-1.5v-5h-0.8 l-0.8,3.4l-1.1,0.5l-1-3.7l-0.6-3.7l-0.8-0.5l0.3,5.7v1.1l-1.5-1.3l-3.6-6l-2.1-0.5l-0.6-3.7l-1.6-2.9l-1.6-1.1v-2.3l2.1-1.3 l-0.5-0.3l-2.6,0.6l-3.4-2.4l-2.6-2.9l-4.8-2.6l-4-2.6l1.3-3.2v-1.6l-1.8,1.6l-2.9,1.1l-3.7-1.1l-5.7-2.4h-5.5l-0.6,0.5l-6.5-3.9 l-2.1-0.3l-2.7-5.8l-3.6,0.3l-3.6,1.5l0.5,4.5l1.1-2.9l1,0.3l-1.5,4.4l3.2-2.7l0.6,1.6l-3.9,4.4l-1.3-0.3l-0.5-1.9l-1.3-0.8 l-1.3,1.1l-2.7-1.8l-3.1,2.1l-1.8,2.1l-3.4,2.1l-4.7-0.2l-0.5-2.1l3.7-0.6v-1.3l-2.3-0.6l1-2.4l2.3-3.9v-1.8l0.2-0.8l4.4-2.3l1,1.3 h2.7l-1.3-2.6l-3.7-0.3l-5,2.7l-2.4,3.4l-1.8,2.6l-1.1,2.3l-4.2,1.5l-3.1,2.6l-0.3,1.6l2.3,1l0.8,2.1l-2.7,3.2l-6.5,4.2l-7.8,4.2 l-2.1,1.1l-5.3,1.1l-5.3,2.3l1.8,1.3l-1.5,1.5l-0.5,1.1l-2.7-1l-3.2,0.2l-0.8,2.3h-1l0.3-2.4l-3.6,1.3l-2.9,1l-3.4-1.3l-2.9,1.9 h-3.2l-2.1,1.3l-1.6,0.8l-2.1-0.3l-2.6-1.1l-2.3,0.6l-1,1l-1.6-1.1v-1.9l3.1-1.3l6.3,0.6l4.4-1.6l2.1-2.1l2.9-0.6l1.8-0.8l2.7,0.2 l1.6,1.3l1-0.3l2.3-2.7l3.1-1l3.4-0.6l1.3-0.3l0.6,0.5h0.8l1.3-3.7l4-1.5l1.9-3.7l2.3-4.5l1.6-1.5l0.3-2.6l-1.6,1.3l-3.4,0.6 l-0.6-2.4l-1.3-0.3l-1,1l-0.2,2.9l-1.5-0.2l-1.5-5.8l-1.3,1.3l-1.1-0.5l-0.3-1.9l-4,0.2l-2.1,1.1l-2.6-0.3l1.5-1.5l0.5-2.6 l-0.6-1.9l1.5-1l1.3-0.2l-0.6-1.8v-4.4l-1-1l-0.8,1.5h-6.1l-1.5-1.3l-0.6-3.9l-2.1-3.6v-1l2.1-0.8l0.2-2.1l1.1-1.1l-0.8-0.5 l-1.3,0.5l-1.1-2.7l1-5l4.5-3.2l2.6-1.6l1.9-3.7l2.7-1.3l2.6,1.1l0.3,2.4l2.4-0.3l3.2-2.4l1.6,0.6l1,0.6h1.6l2.3-1.3l0.8-4.4 c0,0,0.3-2.9,1-3.4c0.6-0.5,1-1,1-1l-1.1-1.9l-2.6,0.8l-3.2,0.8l-1.9-0.5l-3.6-1.8l-5-0.2l-3.6-3.7l0.5-3.9l0.6-2.4l-2.1-1.8 l-1.9-3.7l0.5-0.8l6.8-0.5h2.1l1,1h0.6l-0.2-1.6l3.9-0.6l2.6,0.3l1.5,1.1l-1.5,2.1l-0.5,1.5l2.7,1.6l5,1.8l1.8-1l-2.3-4.4l-1-3.2 l1-0.8l-3.4-1.9l-0.5-1.1l0.5-1.6l-0.8-3.9l-2.9-4.7l-2.4-4.2l2.9-1.9h3.2l1.8,0.6l4.2-0.2l3.7-3.6l1.1-3.1l3.7-2.4l1.6,1l2.7-0.6 l3.7-2.1l1.1-0.2l1,0.8l4.5-0.2l2.7-3.1h1.1l3.6,2.4l1.9,2.1l-0.5,1.1l0.6,1.1l1.6-1.6l3.9,0.3l0.3,3.7l1.9,1.5l7.1,0.6l6.3,4.2 l1.5-1l5.2,2.6l2.1-0.6l1.9-0.8l4.8,1.9L332.1,553.7z"/>
+              <path id="FL" data-info="Florida (Tallahassee)" fill="#CBD5E1" d="M929.4,545.5l2.3,7.3l3.7,9.7l5.3,9.4l3.7,6.3l4.8,5.5l4,3.7l1.6,2.9l-1.1,1.3L953,593l2.9,7.4 l2.9,2.9l2.6,5.3l3.6,5.8l4.5,8.2l1.3,7.6l0.5,12l0.6,1.8l-0.3,3.4l-2.4,1.3l0.3,1.9l-0.6,1.9l0.3,2.4l0.5,1.9l-2.7,3.2l-3.1,1.5 l-3.9,0.2l-1.5,1.6l-2.4,1l-1.3-0.5l-1.1-1l-0.3-2.9l-0.8-3.4l-3.4-5.2l-3.6-2.3l-3.9-0.3l-0.8,1.3l-3.1-4.4l-0.6-3.6l-2.6-4 l-1.8-1.1l-1.6,2.1l-1.8-0.3l-2.1-5l-2.9-3.9l-2.9-5.3l-2.6-3.1l-3.6-3.7l2.1-2.4l3.2-5.5l-0.2-1.6l-4.5-1l-1.6,0.6l0.3,0.6l2.6,1 l-1.5,4.5l-0.8,0.5l-1.8-4l-1.3-4.8l-0.3-2.7l1.5-4.7v-9.5L910,585l-1.3-3.1l-5.2-1.3l-1.9-0.6l-1.6-2.6l-3.4-1.6l-1.1-3.4l-2.7-1 l-2.4-3.7l-4.2-1.5l-2.9-1.5h-2.6l-4,0.8l-0.2,1.9l0.8,1l-0.5,1.1l-3.1-0.2l-3.7,3.6l-3.6,1.9h-3.9l-3.2,1.3l-0.3-2.7l-1.6-1.9 l-2.9-1.1l-1.6-1.5l-8.1-3.9l-7.6-1.8l-4.4,0.6l-6,0.5l-6,2.1l-3.5,0.6l-0.2-8l-2.6-1.9l-1.8-1.8l0.3-3.1l10.2-1.3l25.5-2.9 l6.8-0.6l5.4,0.3l2.6,3.9l1.5,1.5l8.1,0.5l10.8-0.6l21.5-1.3l5.4-0.7l4.6,0l0.2,2.9l3.8,0.8l0.3-4.8l-1.6-4.5l1-0.7l5.1,0.5 L929.4,545.5z"/>
+              <path id="SC" data-info="South Carolina (Columbia)" fill="#CBD5E1" d="M935.2,512.9l-1.8,1l-2.6-1.3l-0.6-2.1l-1.3-3.6l-2.3-2.1l-2.6-0.6l-1.6-4.8l-2.7-6l-4.2-1.9 l-2.1-1.9l-1.3-2.6L910,485l-2.3-1.3l-2.3-2.9l-3.1-2.3l-4.5-1.8l-0.5-1.5l-2.4-2.9l-0.5-1.5l-3.4-5.2l-3.4,0.2l-4-2.4l-1.3-1.3 l-0.3-1.8l0.8-1.9l2.3-1l-0.3-2.1l6.1-2.6l9.1-4.5l7.3-0.8l16.5-0.5l2.3,1.9l1.6,3.2l4.4-0.5l12.6-1.5l2.9,0.8l12.6,7.6l10.1,8.1 l-5.4,5.5l-2.6,6.1l-0.5,6.3l-1.6,0.8l-1.1,2.7l-2.4,0.6l-2.1,3.6l-2.7,2.7l-2.3,3.4l-1.6,0.8l-3.6,3.4l-2.9,0.2l1,3.2l-5,5.5 L935.2,512.9z"/>
+              <path id="GA" data-info="Georgia (Atlanta) • Senate & Governor Battleground" fill="#CBD5E1" d="M863.6,458l-4.8,0.8l-8.4,1.1l-8.6,0.9v2.2l0.2,2.1l0.6,3.4l3.4,7.9l2.4,9.9l1.5,6.1l1.6,4.8l1.5,7 l2.1,6.3l2.6,3.4l0.5,3.4l1.9,0.8l0.2,2.1l-1.8,4.8l-0.5,3.2l-0.2,1.9l1.6,4.4l0.3,5.3l-0.8,2.4l0.6,0.8l1.5,0.8l0.6,3.4l2.6,3.9 l1.5,1.5l7.9,0.2l10.8-0.6l21.5-1.3l5.4-0.7l4.6,0l0.2,2.9l2.6,0.8l0.3-4.4l-1.6-4.5l1.1-1.6l5.8,0.8l5,0.3l-0.8-6.3l2.3-10 l1.5-4.2l-0.5-2.6l3.3-6.2l-0.5-1.4l-1.9,0.7l-2.6-1.3l-0.6-2.1l-1.3-3.6l-2.3-2.1l-2.6-0.6l-1.6-4.8l-2.9-6.3l-4.2-1.9l-2.1-1.9 l-1.3-2.6l-2.1-1.9l-2.3-1.3l-2.3-2.9l-3.1-2.3l-4.5-1.8l-0.5-1.5l-2.4-2.9l-0.5-1.5l-3.4-4.9l-3.4,0.2l-4.1-3l-1.3-1.3l-0.3-1.8 l0.8-1.9l2.4-1.2l-1.1-1.2l0.1-0.3l-5.8,1l-7,0.8L863.6,458z"/>
+              <path id="AL" data-info="Alabama (Montgomery)" fill="#CBD5E1" d="M799.6,566.8l-1.6-15.2l-2.7-18.8l0.2-14.1l0.8-31l-0.2-16.7l0.2-6.4l7.8-0.4l27.8-2.6l8.9-0.7 l-0.1,2.2l0.2,2.1l0.6,3.4l3.4,7.9l2.4,9.9l1.5,6.1l1.6,4.8l1.5,7l2.1,6.3l2.6,3.4l0.5,3.4l1.9,0.8l0.2,2.1l-1.8,4.8l-0.5,3.2 l-0.2,1.9l1.6,4.4l0.3,5.3l-0.8,2.4l0.6,0.8l1.5,0.8l1,2.5h-6.3l-6.8,0.6l-25.5,2.9l-10.4,1.4l-0.1,3.8l1.8,1.8l2.6,1.9l0.6,7.9 l-5.5,2.6l-2.7-0.3l2.7-1.9v-1l-3.1-6l-2.3-0.6l-1.5,4.4l-1.3,2.7l-0.6-0.2H799.6z"/>
+              <path id="NC" data-info="North Carolina (Raleigh) • Senate Battleground" fill="#CBD5E1" d="M1006.1,398.5l1.7,4.7l3.6,6.5l2.4,2.4l0.6,2.3l-2.4,0.2l0.8,0.6l-0.3,4.2l-2.6,1.3l-0.6,2.1 l-1.3,2.9l-3.7,1.6l-2.4-0.3l-1.5-0.2l-1.6-1.3l0.3,1.3v1h1.9l0.8,1.3l-1.9,6.3h4.2l0.6,1.6l2.3-2.3l1.3-0.5l-1.9,3.6l-3.1,4.8 h-1.3l-1.1-0.5l-2.7,0.6l-5.2,2.4l-6.5,5.3l-3.4,4.7l-1.9,6.5l-0.5,2.4l-4.7,0.5l-5.5,1.3l-9.9-8.2l-12.6-7.6l-2.9-0.8l-12.6,1.5 l-4.3,0.8l-1.6-3.2l-3-2.1l-16.5,0.5l-7.3,0.8l-9.1,4.5l-6.1,2.6l-1.6,0.3l-5.8,1l-7,0.8l-6.8,0.5l0.5-4.1l1.8-1.5l2.7-0.6l0.6-3.7 l4.2-2.7l3.9-1.5l4.2-3.6l4.4-2.1l0.6-3.1l3.9-3.9l0.6-0.2c0,0,0,1.1,0.8,1.1c0.8,0,1.9,0.3,1.9,0.3l2.3-3.6l2.1-0.6l2.3,0.3 l1.6-3.6l2.9-2.6l0.5-2.1v-4l4.5,0.7l7.1-1.3l15.8-1.9l17.1-2.6l19.9-4l19.7-4.2l11.4-2.8L1006.1,398.5z"/>
+              <path id="TN" data-info="Tennessee (Nashville)" fill="#CBD5E1" d="M871.1,420.6l-51.9,5l-15.8,1.8l-4.6,0.5l-3.9,0v3.9l-8.4,0.5l-7,0.6l-11.1,0.1l-0.3,5.8l-2.1,6.3 l-1,3l-1.3,4.4l-0.3,2.6l-4,2.3l1.5,3.6l-1,4.4l-1,0.8l7.3-0.2l24.1-1.9l5.3-0.2l8.1-0.5l27.8-2.6l10.2-0.8l8.4-1l8.4-1.1l4.8-0.8 l-0.1-4.5l1.8-1.5l2.7-0.6l0.6-3.7l4.2-2.7l3.9-1.5l4.2-3.6l4.4-2.1l0.9-3.5l4.3-3.9l0.6-0.2c0,0,0,1.1,0.8,1.1s1.9,0.3,1.9,0.3 l2.3-3.6l2.1-0.6l2.3,0.3l1.6-3.6l2.1-2.2l0.6-1l0.2-3.9l-1.5-0.3l-2.4,1.9l-7.9,0.2l-12,1.9L871.1,420.6z"/>
+              <path id="RI" data-info="Rhode Island (Providence)" fill="#CBD5E1" d="M1048.1,279.8l-0.5-4.2l-0.8-4.4l-1.7-5.9l5.7-1.5l1.6,1.1l3.4,4.4l2.9,4.4l-2.9,1.5l-1.3-0.2 l-1.1,1.8l-2.4,1.9L1048.1,279.8z"/>
+              <path id="CT" data-info="Connecticut (Hartford)" fill="#CBD5E1" d="M1047.2,280.1l-0.6-4.2l-0.8-4.4l-1.6-6l-4.2,0.9l-21.8,4.8l0.6,3.3l1.5,7.3v8.1l-1.1,2.3l1.8,2.1 l5-3.4l3.6-3.2l1.9-2.1l0.8,0.6l2.7-1.5l5.2-1.1L1047.2,280.1z"/>
+              <path id="MA" data-info="Massachusetts (Boston)" fill="#CBD5E1" d="M1029.8,252.7l17.5-4.2l2.3-0.6l2.1-3.2l3.7-1.7l2.9,4.4l-2.4,5.2l-0.3,1.5l1.9,2.6l1.1-0.8 h1.8l2.3,2.6l3.9,6l3.6,0.5l2.3-1l1.8-1.8l-0.8-2.7l-2.1-1.6l-1.5,0.8l-1-1.3l0.5-0.5l2.1-0.2l1.8,0.8l1.9,2.4l1,2.9l0.3,2.4 l-4.2,1.5l-3.9,1.9l-3.9,4.5l-1.9,1.5v-1l2.4-1.5l0.5-1.8l-0.8-3.1l-2.9,1.5l-0.8,1.5l0.5,2.3l-2.1,1l-2.7-4.5l-3.4-4.4l-2.1-1.8 l-6.5,1.9l-5.1,1.1l-21.8,4.8l-0.4-4.9l0.6-10.6l5.2-0.9L1029.8,252.7z"/>
+              <path id="ME" data-info="Maine (Augusta) • Senate Battleground" fill="#CBD5E1" d="M1097.2,177.3l1.9,2.1l2.3,3.7v1.9l-2.1,4.7l-1.9,0.6l-3.4,3.1l-4.8,5.5c0,0-0.6,0-1.3,0 c-0.6,0-1-2.1-1-2.1l-1.8,0.2l-1,1.5l-2.4,1.5l-1,1.5l1.6,1.5l-0.5,0.6l-0.5,2.7l-1.9-0.2v-1.6l-0.3-1.3l-1.5,0.3l-1.8-3.2 l-2.1,1.3l1.3,1.5l0.3,1.1l-0.8,1.3l0.3,3.1l0.2,1.6l-1.6,2.6l-2.9,0.5l-0.3,2.9l-5.3,3.1l-1.3,0.5l-1.6-1.5l-3.1,3.6l1,3.2 l-1.5,1.3l-0.2,4.4l-1.1,6.3l-2.5-1.2l-0.5-3.1l-3.9-1.1l-0.3-2.7l-7.3-23.4l-4.2-13.6l1.4-0.1l1.5,0.4v-2.6l0.8-5.5l2.6-4.7l1.5-4 l-1.9-2.4v-6l0.8-1l0.8-2.7l-0.2-1.5l-0.2-4.8l1.8-4.8l2.9-8.9l2.1-4.2h1.3l1.3,0.2v1.1l1.3,2.3l2.7,0.6l0.8-0.8v-1l4-2.9l1.8-1.8 l1.5,0.2l6,2.4l1.9,1l9.1,29.9h6l0.8,1.9l0.2,4.8l2.9,2.3h0.8l0.2-0.5l-0.5-1.1L1097.2,177.3z"/>
+              <path id="NH" data-info="New Hampshire (Concord)" fill="#CBD5E1" d="M1054.8,242.4l0.9-1.1l1.1-3.3l-2.5-0.9l-0.5-3.1l-3.9-1.1l-0.3-2.7l-7.3-23.4l-4.6-14.5l-0.9,0 l-0.6,1.6l-0.6-0.5l-1-1l-1.5,1.9l0,5l0.3,5.7l1.9,2.7v4l-3.7,5.1l-2.6,1.1v1.1l1.1,1.8v8.6l-0.8,9.2l-0.2,4.8l1,1.3l-0.2,4.5 l-0.5,1.8l1.5,0.9l16.4-4.7l2.3-0.6l1.5-2.6L1054.8,242.4z"/>
+              <path id="VT" data-info="Vermont (Montpelier)" fill="#CBD5E1" d="M1018.3,253.7l-0.8-5.7l-2.4-10l-0.6-0.3l-2.9-1.3l0.8-2.9l-0.8-2.1l-2.7-4.6l1-3.9l-0.8-5.2 l-2.4-6.5l-0.8-4.9l26.2-6.7l0.3,5.8l1.9,2.7v4l-3.7,4l-2.6,1.1v1.1l1.1,1.8v8.6l-0.8,9.2l-0.2,4.8l1,1.3l-0.2,4.5l-0.5,1.8 l0.7,1.6l-7,1.4L1018.3,253.7z"/>
+              <path id="NY" data-info="New York (Albany) • Swing Districts (NY-19)" fill="#CBD5E1" d="M1002.6,289.4l-1.1-1l-2.6-0.2l-2.3-1.9l-1.6-6.1l-3.5,0.1l-2.4-2.7l-19.4,4.4l-43,8.7l-7.5,1.2 l-0.7-6.5l1.4-1.1l1.3-1.1l1-1.6l1.8-1.1l1.9-1.8l0.5-1.6l2.1-2.7l1.1-1l-0.2-1l-1.3-3.1l-1.8-0.2l-1.9-6.1l2.9-1.8l4.4-1.5l4-1.3 l3.2-0.5l6.3-0.2l1.9,1.3l1.6,0.2l2.1-1.3l2.6-1.1l5.2-0.5l2.1-1.8l1.8-3.2l1.6-1.9h2.1l1.9-1.1l0.2-2.3l-1.5-2.1l-0.3-1.5l1.1-2.1 v-1.5h-1.8l-1.8-0.8l-0.8-1.1l-0.2-2.6l5.8-5.5l0.6-0.8l1.5-2.9l2.9-4.5l2.7-3.7l2.1-2.4l2.4-1.8l3.1-1.2l5.5-1.3l3.2,0.2l4.5-1.5 l7.6-2.1l0.5,5l2.4,6.5l0.8,5.2l-1,3.9l2.6,4.5l0.8,2.1l-0.8,2.9l2.9,1.3l0.6,0.3l3.1,11l-0.5,5.1l-0.5,10.8l0.8,5.5l0.8,3.6 l1.5,7.3v8.1l-1.1,2.3l1.8,2l0.8,1.7l-1.9,1.8l0.3,1.3l1.3-0.3l1.5-1.3l2.3-2.6l1.1-0.6l1.6,0.6l2.3,0.2l7.9-3.9l2.9-2.7l1.3-1.5 l4.2,1.6l-3.4,3.6l-3.9,2.9l-7.1,5.3l-2.6,1l-5.8,1.9l-4,1.1l-1.2-0.5l-0.2-3.7l0.5-2.7l-0.2-2.1l-2.8-1.7l-4.5-1l-3.9-1.1 L1002.6,289.4z"/>
+              <path id="NJ" data-info="New Jersey (Trenton)" fill="#CBD5E1" d="M1002.2,290.3l-2.1,2.4v3.1l-1.9,3.1l-0.2,1.6l1.3,1.3l-0.2,2.4l-2.3,1.1l0.8,2.7l0.2,1.1l2.7,0.3 l1,2.6l3.6,2.4l2.4,1.6v0.8l-3.2,3.1l-1.6,2.3l-1.5,2.7l-2.3,1.3l-1.2,0.7l-0.2,1.2l-0.6,2.6l1.1,2.2l3.2,2.9l4.8,2.3l4,0.6 l0.2,1.5l-0.8,1l0.3,2.7h0.8l2.1-2.4l0.8-4.8l2.7-4l3.1-6.5l1.1-5.5l-0.6-1.1l-0.2-9.4l-1.6-3.4l-1.1,0.8l-2.7,0.3l-0.5-0.5l1.1-1 l2.1-1.9l0.1-1.1l-0.4-3.4l0.5-2.7l-0.2-2.1l-2.6-1.1l-4.5-1l-3.9-1.1L1002.2,290.3z"/>
+              <path id="PA" data-info="Pennsylvania (Harrisburg) • PA-07 House Battleground" fill="#CBD5E1" d="M996.2,326.5l1.1-0.6l2.3-0.6l1.5-2.7l1.6-2.3l3.2-3.1v-0.8l-2.4-1.6l-3.6-2.4l-1-2.6l-2.7-0.3 l-0.2-1.1l-0.8-2.7l2.3-1.1l0.2-2.4l-1.3-1.3l0.2-1.6l1.9-3.1v-3.1l2.3-2.4l0.2-1.1l-2.6-0.2l-2.3-1.9l-2.4-5.3l-3-0.9l-2.3-2.1 l-18.6,4l-43,8.7l-8.9,1.5l-0.5-7.1l-5.5,5.6l-1.3,0.5l-4.2,3l2.9,19.1l2.5,9.7l3.6,19.3l3.3-0.6l11.9-1.5l37.9-7.7l14.9-2.8 l8.3-1.6l0.3-0.2l2.1-1.6L996.2,326.5z"/>
+              <path id="DE" data-info="Delaware (Dover)" fill="#CBD5E1" d="M996.4,330.4l0.6-2.1l0-1.2l-1.3-0.1l-2.1,1.6l-1.5,1.5l1.5,4.2l2.3,5.7l2.1,9.7l1.6,6.3l5-0.2 l6.1-1.2l-2.3-7.4l-1,0.5l-3.6-2.4l-1.8-4.7l-1.9-3.6l-2.3-1l-2.1-3.6L996.4,330.4z"/>
+              <path id="MD" data-info="Maryland (Annapolis)" fill="#CBD5E1" d="M1011,355.3l-6.1,1.3l-5.8,0.2l-1.8-7.1l-2.1-9.7l-2.3-5.7l-1.3-4.4l-7.5,1.6l-14.9,2.8l-37.5,7.6 l1.1,5l1,5.7l0.3-0.3l2.1-2.4l2.3-2.6l2.4-0.6l1.5-1.5l1.8-2.6l1.3,0.6l2.9-0.3l2.6-2.1l2-1.5l1.8-0.5l1.6,1.1l2.9,1.5l1.9,1.8 l1.2,1.5l4.1,1.7v2.9l5.5,1.3l1.1,0.5l1.4-2l2.9,2l-1.3,2.5l-0.8,4l-1.8,2.6v2.1l0.6,1.8l5.1,1.4l4.3-0.1l3.1,1l2.1,0.3l1-2.1 l-1.5-2.1v-1.8l-2.4-2.1l-2.1-5.5l1.3-5.3l-0.2-2.1l-1.3-1.3c0,0,1.5-1.6,1.5-2.3c0-0.6,0.5-2.1,0.5-2.1l1.9-1.3l1.9-1.6l0.5,1 l-1.5,1.6l-1.3,3.7l0.3,1.1l1.8,0.3l0.5,5.5l-2.1,1l0.3,3.6l0.5-0.2l1.1-1.9l1.6,1.8l-1.6,1.3l-0.3,3.4l2.6,3.4l3.9,0.5l1.6-0.8 l3.2,4.2l1.4,0.5l6.7-2.8l2-4L1011,355.3z"/>
+              <path id="WV" data-info="West Virginia (Charleston)" fill="#CBD5E1" d="M930.6,342l1.1,4.9l1.1,6.9l3.6-2.7l2.3-3.1l2.5-0.6l1.5-1.5l1.8-2.6l1.2,0.6l2.9-0.3l2.6-2.1 l2-1.5l1.8-0.5l1.3,1l2.2,1.1l1.9,1.8l1.4,1.3l-0.1,4.7l-5.7-3.1l-4.5-1.8l-0.2,5.3l-0.5,2.1l-1.6,2.7l-0.6,1.6l-3.1,2.4l-0.5,2.3 l-3.4,0.3l-0.3,3.1l-1.1,5.5h-2.6l-1.3-0.8l-1.6-2.7l-1.8,0.2l-0.3,4.4l-2.1,6.6l-5,10.8l0.8,1.3l-0.2,2.7l-2.1,1.9l-1.5-0.3 l-3.2,2.4l-2.6-1l-1.8,4.7c0,0-3.7,0.8-4.4,1c-0.6,0.2-2.4-1.3-2.4-1.3l-2.4,2.3l-2.6,0.6l-2.9-0.8l-1.3-1.3l-2.2-3l-3.1-2 l-2.6-2.7l-2.9-3.7l-0.6-2.3l-2.6-1.5l-0.8-1.6l-0.2-5.3l2.2-0.1l1.9-0.8l0.2-2.7l1.6-1.5l0.2-5l1-3.9l1.3-0.6l1.3,1.1l0.5,1.8 l1.8-1l0.5-1.6l-1.1-1.8v-2.4l1-1.3l2.3-3.4l1.3-1.5l2.1,0.5l2.3-1.6l3.1-3.4l2.3-3.9l0.3-5.7l0.5-5v-4.7l-1.1-3.1l1-1.5l1.3-1.3 l3.5,19.8l4.6-0.8L930.6,342z"/>
+              <path id="KY" data-info="Kentucky (Frankfort)" fill="#CBD5E1" d="M895.8,397.8l-2.3,2.7l-4.2,3.6L885,410l-1.8,1.8v2.1l-3.9,2.1l-5.7,3.4l-3.5,0.4l-51.9,4.9 l-15.8,1.8l-4.6,0.5l-3.9,0l-0.2,4.2l-8.2,0.1l-7,0.6l-10.4,0.2l1.9-0.2l2.2-1.8l2.1-1.1l0.2-3.2l0.9-1.8l-1.6-2.5l0.8-1.9l2.3-1.8 l2.1-0.6l2.7,1.3l3.6,1.3l1.1-0.3l0.2-2.3l-1.3-2.4l0.3-2.3l1.9-1.5l2.6-0.6l1.6-0.6l-0.8-1.8l-0.6-1.9l1.1-0.8l1.1-3.3l3-1.7 l5.8-1l3.6-0.5l1.5,1.9l1.8,0.8l1.8-3.2l2.9-1.5l1.9,1.6l0.8,1.1l2.1-0.5l-0.2-3.4l2.9-1.6l1.1-0.8l1.1,1.6h4.7l0.8-2.1l-0.3-2.3 l2.9-3.6l4.7-3.9l0.5-4.5l2.7-0.3l3.9-1.8l2.7-1.9l-0.3-1.9l-1.5-1.5l0.6-2.2l4.1-0.2l2.4-0.8l2.9,1.6l1.6,4.4l5.8,0.3l1.8,1.8 l2.1,0.2l2.4-1.5l3.1,0.5l1.3,1.5l2.7-2.6l1.8-1.3h1.6l0.6,2.7l1.8,1l2.4,2.2l0.2,5.5l0.8,1.6l2.6,1.5l0.6,2.3l2.9,3.7l2.6,2.7 L895.8,397.8z"/>
+              <path id="OH" data-info="Ohio (Columbus) • Senate & Governor Battleground" fill="#CBD5E1" d="M905.4,295l-6.1,4.1l-3.9,2.3l-3.4,3.7l-4,3.9l-3.2,0.8l-2.9,0.5l-5.5,2.6l-2.1,0.2l-3.4-3.1 l-5.2,0.6l-2.6-1.5l-2.4-1.4l-4.9,0.7l-10.2,1.6l-7.8,1.2l1.3,14.6l1.8,13.7l2.6,23.4l0.6,4.8l4.1-0.1l2.4-0.8l3.4,1.5l2.1,4.4 l5.1,0l1.9,2.1l1.8-0.1l2.5-1.3l2.5,0.4l2,1.5l1.7-2.1l2.3-1.3l2.1-0.7l0.6,2.7l1.8,1l3.5,2.3l2.2-0.1l1.1-1.1l-0.1-1.4l1.6-1.5 l0.2-5l1-3.9l1.5-1.4l1.5,0.9l0.8,1.2l1.2-0.2l-0.4-2.4l-0.6-0.6v-2.4l1-1.3l2.3-3.4l1.3-1.5l2.1,0.5l2.3-1.6l3.1-3.4l2.3-3.9 l0.2-5.4l0.5-5v-4.7l-1.1-3.1l1-1.5l0.9-1l-1.4-9.8L905.4,295z"/>
+              <path id="MI" data-info="Michigan (Lansing) • Senate & Governor Battleground" fill="#CBD5E1" d="M871.9,277.2l-3.2-8.2l-2.3-9.1l-2.4-3.2l-2.6-1.8l-1.6,1.1l-3.9,1.8l-1.9,5l-2.7,3.7l-1.1,0.6l-1.5-0.6c0,0-2.6-1.5-2.4-2.1 c0.2-0.6,0.5-5,0.5-5l3.4-1.3l0.8-3.4l0.6-2.6l2.4-1.6l-0.3-10l-1.6-2.3l-1.3-0.8l-0.8-2.1l0.8-0.8l1.6,0.3l0.2-1.6L850,231 l-1.3-2.6h-2.6l-4.5-1.5l-5.5-3.4h-2.7l-0.6,0.6l-1-0.5l-3.1-2.3l-2.9,1.8l-2.9,2.3l0.3,3.6l1,0.3l2.1,0.5l0.5,0.8l-2.6,0.8 l-2.6,0.3l-1.5,1.8l-0.3,2.1l0.3,1.6l0.3,5.5l-3.6,2.1l-0.6-0.2v-4.2l1.3-2.4l0.6-2.4l-0.8-0.8l-1.9,0.8l-1,4.2l-2.7,1.1l-1.8,1.9 l-0.2,1l0.6,0.8l-0.6,2.6l-2.3,0.5v1.1l0.8,2.4l-1.1,6.1l-1.6,4l0.6,4.7l0.5,1.1l-0.8,2.4l-0.3,0.8l-0.3,2.7l3.6,6l2.9,6.5l1.5,4.8 l-0.8,4.7l-1,6l-2.4,5.2l-0.3,2.7l-3.3,3.1l4.4-0.2l21.4-2.3l7.3-1l0.1,1.7l6.9-1.2l10.3-1.5l3.9-0.5l0.1-0.6l0.2-1.5l2.1-3.7 l2-1.7l-0.2-5.1l1.6-1.6l1.1-0.3l0.2-3.6l1.5-3l1.1,0.6l0.2,0.6l0.8,0.2l1.9-1L871.9,277.2z M741.5,211.2l0.7-0.6l2.7-0.8l3.6-2.3 v-1l0.6-0.6l6-1l2.4-1.9l4.4-2.1l0.2-1.3l1.9-2.9l1.8-0.8l1.3-1.8l2.3-2.3l4.4-2.4l4.7-0.5l1.1,1.1l-0.3,1l-3.7,1l-1.5,3.1 l-2.3,0.8l-0.5,2.4l-2.4,3.2l-0.3,2.6l0.8,0.5l1-1.1l3.6-2.9l1.3,1.3h2.3l3.2,1l1.5,1.1l1.5,3.1l2.7,2.7l3.9-0.2l1.5-1l1.6,1.3 l1.6,0.5l1.3-0.8h1.1l1.6-1l4-3.6l3.4-1.1l6.6-0.3l4.5-1.9l2.6-1.3l1.5,0.2v5.7l0.5,0.3l2.9,0.8l1.9-0.5l6.1-1.6l1.1-1.1l1.5,0.5v7 l3.2,3.1l1.3,0.6l1.3,1l-1.3,0.3l-0.8-0.3l-3.7-0.5l-2.1,0.6l-2.3-0.2l-3.2,1.5h-1.8l-5.8-1.3l-5.2,0.2l-1.9,2.6l-7,0.6l-2.4,0.8 l-1.1,3.1l-1.3,1.1l-0.5-0.2l-1.5-1.6l-4.5,2.4h-0.6l-1.1-1.6l-0.8,0.2l-1.9,4.4l-1,4l-3.2,7l-1.2-1l-1.4-1l-1.9-10.3l-3.5-1.4 l-2.1-2.3l-12.1-2.7l-2.9-1l-8.2-2.2l-7.9-1.1L741.5,211.2z"/>
+              <path id="WY" data-info="Wyoming (Cheyenne)" fill="#CBD5E1" d="M528.3,243.8l-10.5-0.8l-32.1-3.3l-16.2-2.1l-28.3-4.1l-19.9-3l-1.4,11.2l-3.8,24.3l-5.3,30.4 l-1.5,10.5l-1.7,11.9l6.5,0.9l25.9,2.5l20.6,2.3l36.8,4.1l23.8,2.9l4.5-44.2l1.4-25.4L528.3,243.8z"/>
+              <path id="MT" data-info="Montana (Helena)" fill="#CBD5E1" d="M530.7,222.3l0.6-11.2l2.3-24.8c0.5-5,1.1-8.5,1.4-15.4l0.9-14.6l-30.7-2.8L476,150l-29.3-4 l-32.3-5.3l-18.4-3.4l-32.7-6.9l-4.5,21.3l3.4,7.5l-1.4,4.6l1.8,4.6l3.2,1.4l4.6,10.8l2.7,3.2l0.5,1.1l3.4,1.1l0.5,2.1l-7.1,17.6 v2.5l2.5,3.2h0.9l4.8-3l0.7-1.1l1.6,0.7l-0.2,5.3l2.7,12.6l3,2.5l0.9,0.7l1.8,2.3l-0.5,3.4l0.7,3.4l1.1,0.9l2.3-2.3h2.7l3.2,1.6 l2.5-0.9h4.1l3.7,1.6l2.7-0.5l0.5-3l3-0.7l1.4,1.4l0.5,3.2l1.8,1.4l1.5-11.6l20.7,3l28.2,4l16.6,1.9l31.4,3.5l11,1.5l1.1-15.4 L530.7,222.3z"/>
+              <path id="ID" data-info="Idaho (Boise)" fill="#CBD5E1" d="M336.1,281c-22.6-4.3-14.1-2.8-21.1-4.4l4.4-17.5l4.3-17.7l1.4-4.2l2.5-5.9l-1.3-2.3l-2.5,0.1 l-0.8-1l0.5-1.1l0.3-3.1l4.5-5.5l1.8-0.5l1.1-1.1l0.6-3.2l0.9-0.7l3.9-5.8l3.9-4.3l0.2-3.8l-3.4-2.6l-1.3-4.4l0.4-9.7l3.7-16.5 l4.5-20.8l3.8-13.5l0.8-3.8l13,2.5l-4.2,21.5l2.9,7.7l-1.1,4.6l2,4.6l3.2,1.7l4.5,9.8l2.7,3.8l0.6,1.1l3.4,1.1l0.5,2.5l-6.9,16.8 l0.3,3.3l2.7,2.9l1.9,0.5l4.8-3.6l0.4-0.5l0.2,0.8l0.3,4.1l2.6,12.9l3.5,2.7l0.4,0.8l2.1,2.4l-0.8,2.8l0.7,3.8l1.9,0.9l2.1-1.6 l2.6-0.5l3.4,1.6l2.5-0.6l3.8-0.2l4,1.6l2.7-0.3l0.9-2.3l2.5-1.6l0.7,1.7l0.6,2.2l2.3,2.5l-3.8,24l-5.1,29l-4.2-0.3l-8.2-1.5 l-9.8-1.8l-12.2-2.4l-12.5-2.5l-8.5-1.8l-9.3-1.7L336.1,281z"/>
+              <path id="WA" data-info="Washington (Olympia)" fill="#CBD5E1" d="M267.6,106.4l4.4,1.5l9.7,2.7l8.6,1.9l20,5.7l23,5.7l15.2,3.4l-1,3.9l-4.1,13.8l-4.5,20.8 l-3.2,16.1l-0.4,9.4l-13.2-3.9l-15.6-3.4l-13.7,0.6l-1.6-1.5l-5.3,1.9l-4-0.3l-2.7-1.8l-1.6,0.5l-4.2-0.2l-1.9-1.4l-4.8-1.7 l-1.4-0.2l-5-1.3l-1.8,1.5l-5.7-0.3l-4.8-3.8l0.2-0.8l0.1-7.9l-2.1-3.9l-4.1-0.7l-0.4-2.4l-2.5-0.6l-2.9-0.5l-1.8,1l-2.3-2.9 l0.3-2.9l2.7-0.3l1.6-4l-2.6-1.1l0.2-3.7l4.4-0.6l-2.7-2.7l-1.5-7.1l0.6-2.9v-7.9l-1.8-3.2l2.3-9.4l2.1,0.5l2.4,2.9l2.7,2.6 l3.2,1.9l4.5,2.1l3.1,0.6l2.9,1.5l3.4,1l2.3-0.2v-2.4l1.3-1.1l2.1-1.3l0.3,1.1l0.3,1.8l-2.3,0.5l-0.3,2.1l1.8,1.5l1.1,2.4l0.6,1.9 l1.5-0.2l0.2-1.3l-1-1.3l-0.5-3.2l0.8-1.8l-0.6-1.5V119l1.8-3.6l-1.1-2.6l-2.4-4.8l0.3-0.8L267.6,106.4z"/>
+              <path id="TX" data-info="Texas (Austin) • Senate Battleground" fill="#CBD5E1" d="M531.1,433.4l22.7,1.1l31.1,1.1l-2.3,23.5l-0.3,18.2l0.1,2.1l4.3,3.8l1.7,0.8l1.8,0.3l0.7-1.3 l0.9,0.9l1.7,0.5l1.6-0.7l1.1,0.4l-0.3,3.4l4.3,1l2.7,0.8l4,0.5l2.2,1.8l3.2-1.6l2.8,0.4l2,2.8l1.1,0.3l-0.2,2l3.1,1.2l2.8-1.8 l1.5,0.4l2.4,0.2l0.4,1.9l4.6,2l2.7-0.2l2-4.1h0.3l1.1,1.9l4.4,1l3.3,1.2l3.3,0.8l2.1-0.8l0.8-2.5h3.7l1.9,0.8l3.1-1.6h0.7l0.4,1.1 h4.3l2.4-1.3l1.7,0.3l1.4,1.9l2.9,1.7l3.5,1.1l2.7,1.4l2.4,1.6l3.3-0.9l1.9,1l0.5,10.1l0.3,9.7l0.7,9.5l0.5,4l2.7,4.6l1.1,4.1 l3.9,6.3l0.5,2.9l0.5,1l-0.7,7.5l-2.7,4.4l1,2.9l-0.4,2.5l-0.8,7.3l-1.4,2.7l0.6,4.4l-5.7,1.6l-9.9,4.5l-1,1.9l-2.6,1.9l-2.1,1.5 l-1.3,0.8l-5.7,5.3l-2.7,2.1l-5.3,3.2l-5.7,2.4l-6.3,3.4l-1.8,1.5l-5.8,3.6l-3.4,0.6l-3.9,5.5l-4,0.3l-1,1.9l2.3,1.9l-1.5,5.5 l-1.3,4.5l-1.1,3.9l-0.8,4.5l0.8,2.4l1.8,7l1,6.1l1.8,2.7l-1,1.5l-3.1,1.9l-5.7-3.9l-5.5-1.1l-1.3,0.5l-3.2-0.6l-4.2-3.1l-5.2-1.1 l-7.6-3.4l-2.1-3.9l-1.3-6.5l-3.2-1.9l-0.6-2.3l0.6-0.6l0.3-3.4l-1.3-0.6l-0.6-1l1.3-4.4l-1.6-2.3l-3.2-1.3l-3.4-4.4l-3.6-6.6 l-4.2-2.6l0.2-1.9l-5.3-12.3l-0.8-4.2l-1.8-1.9l-0.2-1.5l-6-5.3l-2.6-3.1v-1.1l-2.6-2.1l-6.8-1.1l-7.4-0.6l-3.1-2.3l-4.5,1.8 l-3.6,1.5l-2.3,3.2l-1,3.7l-4.4,6.1l-2.4,2.4l-2.6-1l-1.8-1.1l-1.9-0.6l-3.9-2.3v-0.6l-1.8-1.9l-5.2-2.1l-7.4-7.8l-2.3-4.7v-8.1 l-3.2-6.5l-0.5-2.7l-1.6-1l-1.1-2.1l-5-2.1l-1.3-1.6l-7.1-7.9l-1.3-3.2l-4.7-2.3l-1.5-4.4l-2.6-2.9l-1.9-0.5l-0.6-4.7l8,0.7l29,2.7 l29,1.6l2.3-23.8l3.9-55.6l1.6-18.7l1.4,0"/>
+              <path id="CA" data-info="California (Sacramento) • CA-22 Battleground" fill="#CBD5E1" d="M310.7,486.8l3.8-0.5l1.5-2l0.7-1.9l-3.2-0.1l-1.1-1.8l0.8-1.7l0-6.2l2.2-1.3l2.7-2.6l0.4-4.9 l1.6-3.5l1.9-2.1l3.3-1.7l1.3-0.7l0.8-1.5l-0.9-0.9l-1-1.5l-0.9-5.3l-2.9-5.2l0.1-2.8l-2.2-3.2l-15-23.2l-19.4-28.7l-22.4-33 l-12.7-19.5l1.8-7.2l6.8-25.9l8.1-31.4l-12.4-3.3l-13.5-3.4l-12.6-4.1l-7.5-2.1l-11.4-3l-7.1-2.4l-1.6,4.7l-0.2,7.4l-5.2,11.8 l-3.1,2.6l-0.3,1.1l-1.8,0.8l-1.5,4.2l-0.8,3.2l2.7,4.2l1.6,4.2l1.1,3.6l-0.3,6.5l-1.8,3.1l-0.6,5.8l-1,3.7l1.8,3.9l2.7,4.5 l2.3,4.8l1.3,4l-0.3,3.2l-0.3,0.5v2.1l5.7,6.3l-0.5,2.4l-0.6,2.3l-0.6,1.9l0.2,8.2l2.1,3.7l1.9,2.6l2.7,0.5l1,2.7l-1.1,3.6 l-2.1,1.6h-1.1l-0.8,3.9l0.5,2.9l3.2,4.4l1.6,5.3l1.5,4.7l1.3,3.1l3.4,5.8l1.5,2.6l0.5,2.9l1.6,1v2.4l-0.8,1.9l-1.8,7.1l-0.5,1.9 l2.4,2.7l4.2,0.5l4.5,1.8l3.9,2.1h2.9l2.9,3.1l2.6,4.8l1.1,2.3l3.9,2.1l4.8,0.8l1.5,2.1l0.6,3.2l-1.5,0.6l0.3,1l3.2,0.8l2.7,0.2 l2.9,4.7l3.9,4.2l0.8,2.3l2.6,4.2l0.3,3.2v9.4l0.5,1.8l10,1.5l19.7,2.7L310.7,486.8z"/>
+              <path id="AZ" data-info="Arizona (Phoenix) • Governor & AZ-01 Battleground" fill="#CBD5E1" d="M311.7,487.5l-2.6,2.2l-0.3,1.5l0.5,1l18.9,10.7l12.1,7.6l14.7,8.6l16.8,10l12.3,2.4l25.1,2.7 l2.5-12.5l3.8-27.2l7-52.9l4.3-31l-24.6-3.7l-27.2-4.6l-33.4-6.3l-2.9,18.1l-0.5,0.5l-1.7,2.6l-2.5-0.1l-1.3-2.7l-2.7-0.3l-0.9-1.1 h-0.9l-0.9,0.6l-1.9,1l-0.1,7l-0.2,1.7l-0.6,12.6l-1.5,2.2l-0.6,3.3l2.7,4.9l1.3,5.8l0.8,1l1,0.6l-0.1,2.3l-1.6,1.4l-3.4,1.7 l-1.9,1.9l-1.5,3.7l-0.6,4.9l-2.9,2.7l-2.1,0.7l-0.1,5.8l-0.5,1.7l0.5,0.8l3.7,0.6l-0.6,2.7l-1.5,2.2L311.7,487.5z"/>
+              <path id="NV" data-info="Nevada (Carson City) • Governor & NV-03 Battleground" fill="#CBD5E1" d="M314.7,277.6l21,4.5l9.7,1.9l9.3,1.8l6.6,1.6l-0.6,5.9l-3.5,17.3l-4.1,20l-1.9,9.7l-2.2,13.3 l-3.2,16.4l-3.5,15.7l-2,10.2l-2.5,16.8l-0.5,1.1l-1.1,2.5l-1.9-0.1l-1.1-2.7l-2.7-0.5l-1.4-1l-2,0.3l-0.9,0.7l-1.3,1.3l-0.4,7 l-0.5,1.7l-0.4,12.1l-1.3,1.7l-1.9-2.3l-14.5-22.7l-19.4-29L263.6,349l-12.4-18.6l1.6-6.6l7-25.9l7.9-31.3l33.6,8.1l13.7,3"/>
+              <path id="UT" data-info="Utah (Salt Lake City)" fill="#CBD5E1" d="M427,409.3l-24.6-3.5l-26.6-4.9l-33.8-6l1.6-9.2l3.2-15.2L350,354l2.2-13.6l1.9-8.9l3.8-20.5 l3.5-17.5l1.1-5.6l12.7,2.3l12,2.1l10.3,1.8l8.3,1.4l3.7,0.5l-1.5,10.6l-2.3,13.2l7.8,0.9l16.4,1.8l8.2,0.9l-2.1,22l-3.2,22.6 l-3.8,27.8l-1.7,11.1L427,409.3z"/>
+              <path id="CO" data-info="Colorado (Denver)" fill="#CBD5E1" d="M552.6,356.8l1.4-21.3l-32.1-3.1l-24.5-2.7l-37.3-4.1l-20.7-2.5l-2.6,22.2l-3.2,22.4l-3.8,28 l-1.5,11.1l-0.3,2.8l33.9,3.8l37.7,4.3l32,3.2l16.6,0.8"/>
+              <path id="NM" data-info="New Mexico (Santa Fe)" fill="#CBD5E1" d="M456.7,531l-0.7-6.1l8.6,0.5l29.5,3.1l28.4,1.4l2-22.3l3.7-55.9l1.1-19.4l2,0.3l0-11.1l-32.2-2.4 l-36.9-4.4l-34.5-4.1l-4.2,30.8l-7,53.2l-3.8,26.9l-2,13.3l15.5,2l1.3-10l16.7,2.6L456.7,531z"/>
+              <path id="OR" data-info="Oregon (Salem)" fill="#CBD5E1" d="M314.3,276.7l4.3-17.9l4.7-17.9l1.1-4.2l2.4-5.6l-0.6-1.2l-2.5,0l-1.3-1.7l0.5-1.5l0.5-3.2l4.5-5.5 l1.8-1.1l1.1-1.1l1.5-3.6l4-5.7l3.6-3.9l0.2-3.5l-3.3-2.5l-1.2-4.5l-13.2-3.7l-15.1-3.5l-15.4,0.1l-0.5-1.4l-5.5,2.1l-4.5-0.6 l-2.4-1.6l-1.3,0.7L273,184l-1.7-1.4l-5.3-2.1l-0.8,0.1l-4.3-1.5l-1.9,1.8l-6.2-0.3l-5.9-4.1l0.7-0.8l0.2-7.8l-2.3-3.9l-4.1-0.6 l-0.7-2.5l-2.4-0.5l-5.8,2.1l-2.3,6.5l-3.2,10l-3.2,6.5l-5,14.1l-6.5,13.6l-8.1,12.6l-1.9,2.9l-0.8,8.6l-1.3,6l2.7,3.5l6.7,2.3 l11.6,3.3l7.9,2.5l12.4,3.6l13.3,3.6l13.2,3.6"/>
+              <path id="ND" data-info="North Dakota (Bismarck)" fill="#CBD5E1" d="M645.3,227.7l-0.4-7.5l-2-7.3l-1.8-13.6l-0.5-9.8l-2-3.1l-1.6-5.4v-10.3l0.7-3.9l-2.1-5.5 l-28.4-0.6l-18.6-0.6l-26.5-1.3l-24.9-1.9l-1.3,14.2l-1.4,15.1l-2.3,24.9l-0.5,11l56.8,3.8L645.3,227.7z"/>
+              <path id="SD" data-info="South Dakota (Pierre)" fill="#CBD5E1" d="M646.8,303.2l-1-1.1l-1.5-3.6l1.8-3.7l1.1-5.6l-2.6-2.1l-0.3-2.7l0.6-3l2.2-0.8l0.3-5.7l-0.1-30.1 l-0.6-3l-4.1-3.6l-1-2v-1.9l1.9-1.3l1.5-1.9l0.2-2.7l-57.4-1.6l-56.2-3.9l-0.8,5.3l-1.6,15.9l-1.3,17.9l-1.6,24.6l16,1l19.6,1.1 l18,1.3l23.8,1.3l10.7-0.8l2.9,2.3l4.3,3l1,0.8l3.5-0.9l4-0.3l2.7-0.1l3.1,1.2l4.5,1.4l3.1,1.8l0.6,1.9l0.9,1.9l0.7-0.5 L646.8,303.2z"/>
+              <path id="NE" data-info="Nebraska (Lincoln) • NE-02 Swing District" fill="#CBD5E1" d="M658.2,347l1.4,2.7l0.1,2.1l2.4,3.7l2.7,3.2h-5l-43.5-0.9l-40.8-0.9l-21.2-1l1.1-21.3l-33.4-2.7 l4.3-44l15.5,1L562,290l17.8,1.1l23.8,1.1l10.7-0.5l2.1,2.3l4.8,3l1.1,0.9l4.3-1.4l3.9-0.5l2.7-0.2l1.8,1.4l5,1.6l3,1.6l0.5,1.6 l0.9,2.1h1.8l0.8,0l1,5.2l2.7,8l1.2,4.6l2.1,3.8l0.5,4.9l1.4,4.3l0.5,6.5"/>
+              <path id="IA" data-info="Iowa (Des Moines) • Senate & Governor Battleground" fill="#CBD5E1" d="M740.6,301.6l0.2,1.9l2.3,1.1l1.1,1.3l0.3,1.3l3.9,3.2l0.7,2.2l-0.8,2.9l-1.5,3.5l-0.8,2.7 l-2.2,1.6l-1.7,0.6l-5.5,1.5l-0.7,2.3l-0.8,2.3l0.6,1.4l1.7,1.7l0,3.7l-2.2,1.6l-0.5,1.5v2.5l-1.5,0.5l-1.7,1.4l-0.5,1.5l0.5,1.7 l-1.4,1.2l-2.3-2.7l-1.5-2.6l-8.3,0.8l-10.2,0.6l-25,0.7l-13,0.2l-9.4,0.2l-1.3,0.1l-1.7-4.5l-0.2-6.6l-1.6-4.1l-0.7-5.3l-2.3-3.7 l-0.9-4.8l-2.7-7.5l-1.1-5.4l-1.4-2.2l-1.6-2.7l1.8-4.3l1.4-5.7l-2.7-2.1l-0.5-2.7l0.9-2.5h1.7h11.5l49.6-0.7l19.9-0.7l1.9,2.7 l1.8,2.6l0.5,0.8l-1.8,2.7l0.5,4.2l2.5,3.9l3,1.8l2.4,0.2L740.6,301.6z"/>
+              <path id="MS" data-info="Mississippi (Jackson)" fill="#CBD5E1" d="M798.6,567l-0.3,1.3h-5.2l-1.5-0.8l-2.1-0.3l-6.8,1.9l-1.8-0.8l-2.6,4.2l-1.1,0.8l-1.1-2.5 l-1.1-3.9l-3.4-3.2l1.1-7.5l-0.7-0.9l-1.8,0.2l-8.2,0.7l-24.2,0.7l-0.5-1.6l0.7-8l3.4-6.2l5.3-9.1l-0.9-2.1h1.1l0.7-3.2l-2.3-1.8 l0.2-1.8l-2.1-4.6l-0.3-5.3l1.4-2.7l-0.4-4.3l-1.4-3l1.4-1.4l-1.4-2.1l0.5-1.8l0.9-6.2l3-2.7l-0.7-2.1l3.7-5.3l2.7-0.9v-2.5 l-0.7-1.4l2.7-5.3l2.7-1.1l0.1-3.4l8.7-0.1l24.1-1.9l4.6-0.2l0,6.4l0.2,16.7l-0.8,31l-0.2,14.1l2.7,18.8L798.6,567z"/>
+              <path id="IN" data-info="Indiana (Indianapolis)" fill="#CBD5E1" d="M792.4,400.9l0.1-2.9l0.5-4.5l2.3-2.9l1.8-3.9l2.6-4.2l-0.5-5.8l-1.8-2.7l-0.3-3.2l0.8-5.5l-0.5-7 l-1.3-16l-1.3-15.4l-1-11.7l3.1,0.9l1.5,1l1.1-0.3l2.1-1.9l2.8-1.6l5.1-0.2l22-2.3l5.6-0.5l1.5,16l4.3,36.8l0.6,5.8L843,371 l1.2,1.8l0.1,1.4l-2.5,1.6l-3.5,1.6l-3.2,0.6l-0.6,4.9l-4.6,3.3l-2.8,4l0.3,2.4l-0.6,1.5h-3.3l-1.6-1.6l-2.5,1.3l-2.7,1.5l0.2,3.1 l-1.2,0.3l-0.5-1l-2.2-1.5l-3.3,1.3l-1.6,3l-1.4-0.8l-1.5-1.6l-4.5,0.5l-5.6,1L792.4,400.9z"/>
+              <path id="IL" data-info="Illinois (Springfield)" fill="#CBD5E1" d="M791.8,401.6V398l0.3-4.9l2.4-3.1l1.8-3.8l2.6-3.9l-0.4-5.3l-2-3.5l-0.1-3.3l0.7-5.3l-0.8-7.2 l-1.1-15.8l-1.3-15l-0.9-11.6l-0.3-0.9l-0.8-2.6l-1.3-3.7l-1.6-1.8l-1.5-2.6l-0.2-5.5l-9.9,1.3l-27.2,1.7l-8.7-0.4l0.2,2.4l2.3,0.7 l0.9,1.1l0.5,1.8l3.9,3.4l0.7,2.3l-0.7,3.4l-1.8,3.7l-0.7,2.5l-2.3,1.8l-1.8,0.7l-5.3,1.4l-0.7,1.8L736,330l0.7,1.4l1.8,1.6 l-0.2,4.1l-1.8,1.6l-0.7,1.6v2.7l-1.8,0.5l-1.6,1.1l-0.2,1.4l0.2,2.1l-1.7,1.3l-1,2.8l0.5,3.7l2.3,7.3l7.3,7.5l5.5,3.7l-0.2,4.3 l0.9,1.4l6.4,0.5l2.7,1.4l-0.7,3.7l-2.3,5.9l-0.7,3.2l2.3,3.9l6.4,5.3l4.6,0.7l2.1,5l2.1,3.2l-0.9,3l1.6,4.1l1.8,2.1l1.9-0.8 l0.7-2.2l2-1.4l3.2-1.1l3.1,1.2l2.9,1.1l0.8-0.2l-0.1-1.2l-1.1-2.8l0.4-2.4l2.3-1.6l2.4-1l1.2-0.4l-0.6-1.3l-0.8-2.2l1.2-1.3 L791.8,401.6z"/>
+              <path id="MN" data-info="Minnesota (Saint Paul)" fill="#CBD5E1" d="M645.9,228.5l-0.5-8.5l-1.8-7.3l-1.8-13.5l-0.5-9.8l-1.8-3.4l-1.6-5v-10.3l0.7-3.9l-1.8-5.5l30.1,0 l0.3-8.2l0.6-0.2l2.3,0.5l1.9,0.8l0.8,5.5l1.5,6.1l1.6,1.6h4.8l0.3,1.5l6.3,0.3v2.1h4.8l0.3-1.3l1.1-1.1l2.3-0.6l1.3,1h2.9l3.9,2.6 l5.3,2.4l2.4,0.5l0.5-1l1.5-0.5l0.5,2.9l2.6,1.3l0.5-0.5l1.3,0.2v2.1l2.6,1h3.1l1.6-0.8l3.2-3.2l2.6-0.5l0.8,1.8l0.5,1.3h1l1-0.8 l8.9-0.3l1.8,3.1h0.6l0.7-1.1l4.4-0.4l-0.6,2.3l-3.9,1.8l-9.2,4.1l-4.8,2l-3.1,2.6l-2.4,3.6l-2.3,3.9l-1.8,0.8l-4.5,5l-1.3,0.2 l-3.8,2.9l-2.8,3.2l-0.2,3l0.2,7.8l-1.6,1.6L704,228l-1.8,5.7l2.5,3.6l0.5,2.5l-1.1,3l-0.2,3.7l0.5,7.1l3.4,4.1h3l2.5,2.3l3.2,1.4 l3.7,5l7.1,5l1.8,2.1l0.2,5.5l-20.6,0.7l-60.2,0.5l-0.3-35.7l-0.5-3l-4.1-3.4l-1.1-1.8v-1.6l2.1-1.6l1.4-1.4L645.9,228.5z"/>
+              <path id="WI" data-info="Wisconsin (Madison) • Governor Battleground" fill="#CBD5E1" d="M786.9,297.2l0.4-3l-1.6-4.5l-0.6-6.1l-1.1-2.4l1-3.1l0.8-2.9l1.5-2.6l-0.6-3.4l-0.6-3.6l0.5-1.8 l1.9-2.4l0.2-2.7l-0.8-1.3l0.6-2.6l0.5-3.2l2.7-5.7l2.9-6.8l0.2-2.3l-0.3-1l-0.8,0.5l-4.2,6.3l-2.7,4l-1.9,1.8l-0.8,2.3l-1.5,0.8 l-1.1,1.9l-1.5-0.3l-0.2-1.8l1.3-2.4l2.1-4.7l1.8-1.6l1.1-2.3l-1.6-0.9l-1.4-1.4l-1.6-10.3l-3.7-1.1l-1.4-2.3l-12.6-2.7l-2.5-1.1 l-8.2-2.3l-8.2-1.1l-4.2-5.4l-0.5,1.3l-1.1-0.2l-0.6-1.1l-2.7-0.8l-1.1,0.2l-1.8,1l-1-0.6l0.6-1.9l1.9-3.1l1.1-1.1l-1.9-1.5 l-2.1,0.8l-2.9,1.9l-7.4,3.2l-2.9,0.6l-2.9-0.5l-1-0.9l-2.1,2.8l-0.2,2.7v8.5l-1.1,1.6l-5.3,3.9l-2.3,5.9l0.5,0.2l2.5,2.1l0.7,3.2 l-1.8,3.2v3.9l0.5,6.6l3,3h3.4l1.8,3.2l3.4,0.5l3.9,5.7l7.1,4.1l2.1,2.7l0.9,7.4l0.7,3.3l2.3,1.6l0.2,1.4l-2.1,3.4l0.2,3.2l2.5,3.9 l2.5,1.1l3,0.5l1.3,1.4l9.2,0l26.1-1.5L786.9,297.2z"/>
+              <path id="MO" data-info="Missouri (Jefferson City)" fill="#CBD5E1" d="M729.8,349.5l-2.5-3.1l-1.1-2.3l-7.8,0.7l-9.8,0.5l-25.4,0.9l-13.5,0.2l-7.9,0.1l-2.3,0.1l1.3,2.5 l-0.2,2.3l2.5,3.9l3.1,4.1l3.1,2.7l2.3,0.2l1.4,0.9v3l-1.8,1.6l-0.5,2.3l2.1,3.4l2.5,3l2.5,1.8l1.4,11.7l-0.7,35.3l0.2,4.7l0.5,5.4 l23.4-0.1l23.2-0.7l20.8-0.8l11.7-0.2l2.2,3.4l-0.7,3.3l-3.1,2.4l-0.6,1.8l5.4,0.5l3.9-0.7l1.7-5.5l0.7-5.9l2.3-2l1.7-1.5l2.1-1 l0.1-2.9l0.6-1.7l-1-1.7l-2.7,0.1l-2.2-2.6l-1.4-4.2l0.8-2.5l-1.9-3.4l-1.8-4.6l-4.8-0.8l-7-5.6l-1.7-4.1l0.8-3.2l2.1-6.1l0.5-2.9 l-1.9-1l-6.9-0.8l-1-1.7l-0.1-4.2l-5.5-3.4l-7-7.8l-2.3-7.3l-0.2-4.2L729.8,349.5z"/>
+              <path id="AR" data-info="Arkansas (Little Rock)" fill="#CBD5E1" d="M765,445l-3.8,0.9l-6.2-0.5l0.7-3l3.2-2.7l0.5-2.3l-1.8-3l-11,0.5l-20.8,0.9l-23.3,0.7L679,437 l1.6,6.9v8.2l1.4,11l0.2,37.8l2.3,1.9l3-1.4l2.7,1.1l0.4,10.3l22.9-0.1l18.9-0.8l10.1-0.2l1.1-2.1l-0.3-3.5l-1.8-3l1.6-1.5 l-1.6-2.5l0.7-2.5l1.4-5.6l2.5-2.1l-0.7-2.3l3.7-5.4l2.7-1.4l-0.1-1.5l-0.3-1.8l2.9-5.6l2.4-1.3l0.4-3.4l1.8-1.2l0.9-4.2l-1.3-4 l4-2.4l0.6-2l1.2-4.3L765,445z"/>
+              <path id="OK" data-info="Oklahoma (Oklahoma City)" fill="#CBD5E1" d="M549.3,422.6l-10.7-0.5l-6.4-0.5l0.3,0.2l-0.7,10.4l22,1.4l32.1,1.3l-2.3,24.4l-0.5,17.8l0.2,1.6 l4.3,3.7l2.1,1.1l0.7-0.2l0.7-2.1l1.4,1.8h2.1v-1.4l2.7,1.4l-0.5,3.9l4.1,0.2l2.5,1.1l4.1,0.7l2.5,1.8l2.3-2.1l3.4,0.7l2.5,3.4h0.9 v2.3l2.3,0.7l2.3-2.3l1.8,0.7h2.5l0.9,2.5l4.8,1.8l1.4-0.7l1.8-4.1h1.1l1.1,2.1l4.1,0.7l3.7,1.4l3,0.9l1.8-0.9l0.7-2.5h4.3l2.1,0.9 l2.7-2.1h1.1l0.7,1.6h4.1l1.6-2.1l1.8,0.5l2.1,2.5l3.2,1.8l3.2,0.9l1.9,1.1l-0.4-37.2l-1.4-11l-0.2-8.9l-1.4-6.5l-0.8-7.2l-0.1-3.8 l-12.1,0.3l-46.4-0.5l-45-2.1L549.3,422.6z"/>
+              <path id="KS" data-info="Kansas (Topeka) • Senate & Governor Battleground" fill="#CBD5E1" d="M677.4,425.1l-12.6,0.2l-46.1-0.5l-44.6-2.1l-24.6-1.3l4.1-64.7l21.8,0.8l40.5,1.4l44.1,0.5h5.1 l3.2,3.2l2.8,0.2l0.9,1.1v2l-1.8,1.6l-0.5,2.6l2.2,3.6l2.5,3.1l2.5,2l1.1,11.2L677.4,425.1z"/>
+              <path id="LA" data-info="Louisiana (Baton Rouge)" fill="#CBD5E1" d="M776.2,573l-1-2.6l-1.1-3.1l-3.3-3.5l0.9-6.8l-0.1-1.1l-1.3,0.3l-8.2,0.9l-25,0.5l-0.7-2.4l0.9-8.5 l3.3-5.9l5-8.7l-0.6-2.4l1.3-0.7l0.5-2l-2.3-2.1l-0.1-1.9l-1.8-4.3l-0.5-5.9l-9.7,0.1l-19.2,0.9l-22.2,0l0,9.6l0.7,9.4l0.7,3.9 l2.5,4.1l0.9,5l4.3,5.5l0.2,3.2l0.7,0.7l-0.7,8.5l-3,5l1.6,2.1l-0.7,2.5l-0.7,7.3l-1.4,3.2l0.1,3.6l4.7-1.5l8.1-0.3l10.3,3.6 l6.5,1.1l3.7-1.5l3.2,1.1l3.2,1l0.8-2.1l-3.2-1.1l-2.6,0.5l-2.7-1.6c0,0,0.2-1.3,0.8-1.5c0.6-0.2,3.1-1,3.1-1l1.8,1.5l1.8-1 l3.2,0.6l1.5,2.4l0.3,2.3l4.5,0.3l1.8,1.8l-0.8,1.6l-1.3,0.8l1.6,1.6l8.4,3.6l3.6-1.3l1-2.4l2.6-0.6l1.8-1.5l1.3,1l0.8,2.9 l-2.3,0.8l0.6,0.6l3.4-1.3l2.3-3.4l0.8-0.5l-2.1-0.3l0.8-1.6l-0.2-1.5l2.1-0.5l1.1-1.3l0.6,0.8c0,0-0.2,3.1,0.6,3.1 c0.8,0,4.2,0.6,4.2,0.6l4,1.9l1,1.5h2.9l1.1,1l2.3-3.1v-1.5h-1.3l-3.4-2.7l-5.8-0.8l-3.2-2.3l1.1-2.7l2.3,0.3l0.2-0.6l-1.8-1v-0.5 h3.2l1.8-3.1l-1.3-1.9l-0.3-2.7l-1.5,0.2l-1.9,2.1l-0.6,2.6l-3.1-0.6l-1-1.8l1.8-1.9l2-1.8L776.2,573z"/>
+              <path id="VA" data-info="Virginia (Richmond)" fill="#CBD5E1" d="M1002.9,369.2l-0.1-1.9l6.5-2.5l-0.8,3.2l-2.9,3.8l-0.4,4.6l0.5,3.4l-1.8,5l-2.2,1.9l-1.5-4.6 l0.4-5.4l1.6-4.2L1002.9,369.2z M1005.2,397.5L947,410.1l-37.4,5.3l-6.7-0.4l-2.6,1.9l-7.3,0.2l-8.4,1l-8.9,1l8.5-4.9l0-2.1 l1.5-2.1l10.6-11.5l3.9,4.5l3.8,1l2.5-1.1l2.2-1.3l2.5,1.3l3.9-1.4l1.9-4.6l2.6,0.5l2.9-2.1l1.8,0.5l2.8-3.7l0.3-2.1l-1-1.3l1-1.9 l5.3-12.3l0.6-5.7l1.2-0.5l2.2,2.4l3.9-0.3l1.9-7.6l2.8-0.6l1-2.7l2.6-2.3l1.3-2.3l1.5-3.4l0.1-5.1l9.8,3.8 c0.7,0.3,0.7-4.8,0.7-4.8l4.1,1.4l-0.5,2.6l8.2,2.9l1.3,1.8l-0.9,3.7l-1.3,1.3l-0.5,1.7l0.5,2.4l2,1.3l3.9,1.4l2.9,1l4.9,0.9 l2.2,2.1l3.2,0.4l0.9,1.2l-0.4,4.7l1.4,1.1l-0.5,1.9l1.2,0.8l-0.2,1.4l-2.7-0.1l0.1,1.6l2.3,1.5l0.1,1.4l1.8,1.8l0.5,2.5l-2.6,1.4 l1.6,1.5l5.8-1.7L1005.2,397.5z"/>
+              <g id="DC">
+                <circle id="circle60" data-info="Washington D.C." fill="#CBD5E1" stroke="#FFFFFF" stroke-width="1.5" cx="975.3" cy="351.8" r="5"/>
+              </g>
+            </g>
+            <path id="path67" fill="none" stroke="#94a3b8" stroke-width="2" d="M385,593v55l36,45 M174,525h144l67,68h86l53,54v46"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- VRAAG 1: MEERDERHEDEN -->
+      <div class="bg-white dark:bg-zinc-900 p-6 sm:p-7 rounded-3xl border border-slate-200/90 dark:border-zinc-800 shadow-sm space-y-6">
+        <div class="border-b border-slate-100 dark:border-zinc-800 pb-3 flex justify-between items-center">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-500">Stap 1</span>
+            <h3 class="text-lg font-bold">Macht in het Congres & Exacte Zetelbalans</h3>
+          </div>
+          <span class="text-xs font-semibold px-2.5 py-1 bg-slate-100 dark:bg-zinc-800 rounded-lg text-slate-500">+30 pt per kamer</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="p-5 rounded-2xl bg-slate-50/70 dark:bg-zinc-800/40 border border-slate-200/60 dark:border-zinc-800 space-y-4">
+            <div class="flex justify-between items-center">
+              <div>
+                <span class="font-bold text-base block">Amerikaanse Senaat</span>
+                <span class="text-xs text-slate-500">Republikeinen starten op 53-47 &bull; Drempel: 51</span>
+              </div>
+              <span id="senatePickedBadge" class="text-xs font-bold px-2 py-0.5 rounded bg-slate-200 dark:bg-zinc-700 text-slate-600 dark:text-zinc-300">Open</span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <button type="button" onclick="selectMajority('senate', 'DEM')" id="senate-dem" class="py-3 px-4 rounded-xl font-bold text-sm border-2 border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 transition flex items-center justify-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-dem"></span> Democraten
+              </button>
+              <button type="button" onclick="selectMajority('senate', 'REP')" id="senate-rep" class="py-3 px-4 rounded-xl font-bold text-sm border-2 border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 transition flex items-center justify-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-rep"></span> Republikeinen
+              </button>
+            </div>
+
+            <div class="space-y-2 pt-2 border-t border-slate-200/50 dark:border-zinc-700/50">
+              <div class="flex justify-between text-xs font-bold font-mono">
+                <span class="text-dem">DEM: <span id="senateDemLabel">49</span></span>
+                <span class="text-rep"><span id="senateRepLabel">51</span> :REP</span>
+              </div>
+              <div class="h-2 w-full rounded-full overflow-hidden flex bg-slate-200 dark:bg-zinc-700">
+                <div id="senateDemBar" style="width: 49%;" class="bg-dem transition-all duration-150"></div>
+                <div id="senateRepBar" style="width: 51%;" class="bg-rep transition-all duration-150"></div>
+              </div>
+              <input type="range" id="senateSlider" min="40" max="60" value="49" oninput="updateSenateSlider(this.value)" class="w-full bg-slate-200 dark:bg-zinc-700 h-1.5 rounded-lg appearance-none cursor-pointer">
+            </div>
+          </div>
+
+          <div class="p-5 rounded-2xl bg-slate-50/70 dark:bg-zinc-800/40 border border-slate-200/60 dark:border-zinc-800 space-y-4">
+            <div class="flex justify-between items-center">
+              <div>
+                <span class="font-bold text-base block">Huis van Afgevaardigden</span>
+                <span class="text-xs text-slate-500">435 zetels &bull; Meerderheid vanaf 218</span>
+              </div>
+              <span id="housePickedBadge" class="text-xs font-bold px-2 py-0.5 rounded bg-slate-200 dark:bg-zinc-700 text-slate-600 dark:text-zinc-300">Open</span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <button type="button" onclick="selectMajority('house', 'DEM')" id="house-dem" class="py-3 px-4 rounded-xl font-bold text-sm border-2 border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 transition flex items-center justify-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-dem"></span> Democraten
+              </button>
+              <button type="button" onclick="selectMajority('house', 'REP')" id="house-rep" class="py-3 px-4 rounded-xl font-bold text-sm border-2 border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 transition flex items-center justify-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-rep"></span> Republikeinen
+              </button>
+            </div>
+
+            <div class="space-y-2 pt-2 border-t border-slate-200/50 dark:border-zinc-700/50">
+              <div class="flex justify-between text-xs font-bold font-mono">
+                <span class="text-dem">DEM: <span id="houseDemLabel">218</span></span>
+                <span class="text-rep"><span id="houseRepLabel">217</span> :REP</span>
+              </div>
+              <div class="h-2 w-full rounded-full overflow-hidden flex bg-slate-200 dark:bg-zinc-700">
+                <div id="houseDemBar" style="width: 50.1%;" class="bg-dem transition-all duration-150"></div>
+                <div id="houseRepBar" style="width: 49.9%;" class="bg-rep transition-all duration-150"></div>
+              </div>
+              <input type="range" id="houseSlider" min="150" max="285" value="218" oninput="updateHouseSlider(this.value)" class="w-full bg-slate-200 dark:bg-zinc-700 h-1.5 rounded-lg appearance-none cursor-pointer">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VRAAG 2: SENAAT -->
+      <div class="bg-white dark:bg-zinc-900 p-6 sm:p-7 rounded-3xl border border-slate-200/90 dark:border-zinc-800 shadow-sm space-y-6">
+        <div class="border-b border-slate-100 dark:border-zinc-800 pb-3 flex justify-between items-center">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-500">Stap 2 &bull; U.S. Senate</span>
+            <h3 class="text-lg font-bold">De 9 Cruciale Senaatsduels (Toss-ups)</h3>
+          </div>
+          <span class="text-xs font-semibold px-2.5 py-1 bg-slate-100 dark:bg-zinc-800 rounded-lg text-slate-500">+15 pt per winnaar</span>
+        </div>
+        <div id="senateRacesGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      </div>
+
+      <!-- VRAAG 3: GOUVERNEURS -->
+      <div class="bg-white dark:bg-zinc-900 p-6 sm:p-7 rounded-3xl border border-slate-200/90 dark:border-zinc-800 shadow-sm space-y-6">
+        <div class="border-b border-slate-100 dark:border-zinc-800 pb-3 flex justify-between items-center">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-500">Stap 3 &bull; Governors</span>
+            <h3 class="text-lg font-bold">De 8 Spannendste Gouverneursraces</h3>
+          </div>
+          <span class="text-xs font-semibold px-2.5 py-1 bg-slate-100 dark:bg-zinc-800 rounded-lg text-slate-500">+15 pt per winnaar</span>
+        </div>
+        <div id="govRacesGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"></div>
+      </div>
+
+      <!-- VRAAG 4: HOUSE DISTRICTS -->
+      <div class="bg-white dark:bg-zinc-900 p-6 sm:p-7 rounded-3xl border border-slate-200/90 dark:border-zinc-800 shadow-sm space-y-6">
+        <div class="border-b border-slate-100 dark:border-zinc-800 pb-3 flex justify-between items-center">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-500">Stap 4 &bull; U.S. House</span>
+            <h3 class="text-lg font-bold">8 Doorslaggevende Swing Districts</h3>
+          </div>
+          <span class="text-xs font-semibold px-2.5 py-1 bg-slate-100 dark:bg-zinc-800 rounded-lg text-slate-500">+10 pt per district</span>
+        </div>
+        <div id="houseDistrictsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"></div>
+      </div>
+    </section>
+
+    <!-- TAB 2: KLASSEMENT -->
+    <section id="content-klassement" class="hidden space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-2xl font-bold tracking-tight">Klassement</h2>
+          <p class="text-sm text-slate-500 dark:text-zinc-400">Live rangschikking over alle categorieën.</p>
+        </div>
+
+        <div class="flex items-center gap-2 bg-white dark:bg-zinc-900 p-1.5 rounded-xl border border-slate-200 dark:border-zinc-800">
+          <i data-lucide="filter" class="w-4 h-4 text-slate-400 ml-2"></i>
+          <select id="leagueFilterSelect" onchange="renderLeaderboard()" class="px-2 py-1 text-xs font-bold bg-transparent text-slate-800 dark:text-zinc-200 focus:outline-none">
+            <option value="ALL">Algemeen Klassement (Iedereen)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="bg-white dark:bg-zinc-900 rounded-3xl border border-slate-200/90 dark:border-zinc-800 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead class="bg-slate-50 dark:bg-zinc-800/60 text-slate-500 dark:text-zinc-400 text-xs uppercase font-bold tracking-wider border-b border-slate-200 dark:border-zinc-800">
+              <tr>
+                <th class="py-3.5 px-4 w-12 text-center">#</th>
+                <th class="py-3.5 px-4">Deelnemer</th>
+                <th class="py-3.5 px-4">Meerderheden</th>
+                <th class="py-3.5 px-4 text-center">Senaat (9)</th>
+                <th class="py-3.5 px-4 text-center">Gouv. (8)</th>
+                <th class="py-3.5 px-4 text-center">Districts (8)</th>
+                <th class="py-3.5 px-4">Laatst Gewijzigd</th>
+                <th class="py-3.5 px-4 text-right">Punten</th>
+                <th class="py-3.5 px-4 text-center w-24">Inkijken</th>
+              </tr>
+            </thead>
+            <tbody id="leaderboardBody" class="divide-y divide-slate-100 dark:divide-zinc-800/80 font-medium"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: LIGA'S & VRIENDEN -->
+    <section id="content-vrienden" class="hidden space-y-6">
+      <div>
+        <h2 class="text-2xl font-bold tracking-tight">Vriendenliga's</h2>
+        <p class="text-sm text-slate-500 dark:text-zinc-400">Speel tegen je vrienden of collega's in een besloten minicompetitie.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-slate-200/90 dark:border-zinc-800 shadow-sm space-y-4">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/40 text-amber-600 flex items-center justify-center font-bold">
+              <i data-lucide="plus-circle" class="w-4 h-4"></i>
+            </div>
+            <h3 class="font-bold text-base">Nieuwe Liga Aanmaken</h3>
+          </div>
+          <div class="flex gap-2">
+            <input type="text" id="newLeagueName" placeholder="bv. Washington Insiders" class="flex-1 px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800/80 text-slate-900 dark:text-zinc-100 focus:outline-none" />
+            <button onclick="createLeague()" class="px-5 py-2.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold rounded-xl hover:bg-slate-800 transition">Aanmaken</button>
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-slate-200/90 dark:border-zinc-800 shadow-sm space-y-4">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/40 text-dem flex items-center justify-center font-bold">
+              <i data-lucide="key-round" class="w-4 h-4"></i>
+            </div>
+            <h3 class="font-bold text-base">Deelnemen met Ligacode</h3>
+          </div>
+          <div class="flex gap-2">
+            <input type="text" id="joinLeagueCode" placeholder="bv. WASH-482" class="flex-1 uppercase px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800/80 text-slate-900 dark:text-zinc-100 focus:outline-none" />
+            <button onclick="joinLeague()" class="px-5 py-2.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold rounded-xl hover:bg-slate-800 transition">Toetreden</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-slate-200/90 dark:border-zinc-800 shadow-sm space-y-4">
+        <h3 class="font-bold text-base">Jouw Actieve Liga's</h3>
+        <div id="myLeaguesList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+      </div>
+
+      <div id="friendInspectSection" class="hidden bg-white dark:bg-zinc-900 p-6 sm:p-7 rounded-3xl border-2 border-slate-900 dark:border-zinc-100 shadow-xl space-y-5">
+        <div class="flex justify-between items-center border-b border-slate-100 dark:border-zinc-800 pb-3">
+          <h3 class="font-bold text-lg flex items-center gap-2">
+            <i data-lucide="eye" class="w-5 h-5 text-amber-500"></i> Inzending van: <span id="inspectUsername" class="text-blue-600 dark:text-blue-400 font-extrabold">Speler</span>
+          </h3>
+          <button onclick="closeInspect()" class="text-xs font-bold px-3 py-1.5 bg-slate-100 dark:bg-zinc-800 rounded-lg hover:bg-slate-200 transition">Sluiten</button>
+        </div>
+        <div id="inspectContent" class="space-y-4 pt-2 text-sm"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- AUTH MODAL -->
+  <div id="authModal" class="hidden fixed inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white dark:bg-zinc-900 rounded-3xl border border-slate-200 dark:border-zinc-800 max-w-sm w-full p-6 sm:p-7 shadow-2xl space-y-5">
+      <div class="flex justify-between items-start">
+        <div>
+          <h3 class="font-logo font-bold text-xl tracking-tight"><span id="authTitle">Inloggen</span></h3>
+          <p class="text-xs text-slate-500 dark:text-zinc-400 mt-1">Kies een naam (3-20 tekens) en een wachtwoord (minstens 6 tekens). Geen e-mail nodig.</p>
+        </div>
+        <button onclick="closeAuthModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <form id="authModalForm" class="space-y-4">
+        <div>
+          <label class="block text-[11px] font-bold uppercase tracking-wider mb-1 text-slate-600 dark:text-zinc-400">Gebruikersnaam</label>
+          <input type="text" id="authUsernameInput" required autocomplete="username" placeholder="bv. Jan Peeters" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-sm font-semibold focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold uppercase tracking-wider mb-1 text-slate-600 dark:text-zinc-400">Wachtwoord</label>
+          <input type="password" id="authPasswordInput" required autocomplete="current-password" placeholder="••••••••" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-sm font-semibold focus:outline-none" />
+        </div>
+        <div id="authModalAlert" class="hidden text-xs p-3 rounded-xl font-medium"></div>
+        <button type="submit" class="w-full py-3 bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-slate-900 rounded-xl font-bold text-sm tracking-wide transition shadow-md">
+          <span id="authSubmitText">Inloggen</span>
+        </button>
+        <button type="button" id="authToggleBtn" class="w-full text-xs font-bold text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white transition">Nog geen account? Registreren</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ADMIN MODAL -->
+  <div id="adminModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white dark:bg-zinc-900 rounded-3xl border border-slate-200 dark:border-zinc-800 max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-7 space-y-6 shadow-2xl">
+      <div class="flex justify-between items-center border-b border-slate-100 dark:border-zinc-800 pb-4">
+        <div class="flex items-center gap-2">
+          <i data-lucide="shield-check" class="w-5 h-5 text-emerald-600"></i>
+          <h3 class="font-bold text-lg">Officiële Verkiezingsuitslag 2026 Beheren</h3>
+        </div>
+        <button onclick="closeAdminModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-bold mb-1">Senaat Winnaar</label>
+          <select id="adminSenateMaj" class="w-full p-2.5 text-xs font-bold bg-slate-50 dark:bg-zinc-800 border rounded-xl">
+            <option value="REP">Republikeinen (REP)</option>
+            <option value="DEM">Democraten (DEM)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold mb-1">Huis Winnaar</label>
+          <select id="adminHouseMaj" class="w-full p-2.5 text-xs font-bold bg-slate-50 dark:bg-zinc-800 border rounded-xl">
+            <option value="REP">Republikeinen (REP)</option>
+            <option value="DEM">Democraten (DEM)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-bold mb-1">Democratische Zetels Senaat (op 100)</label>
+          <input type="number" id="adminSenateDem" value="49" min="0" max="100" class="w-full p-2.5 text-xs font-bold bg-slate-50 dark:bg-zinc-800 border rounded-xl" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold mb-1">Democratische Zetels Huis (op 435)</label>
+          <input type="number" id="adminHouseDem" value="218" min="0" max="435" class="w-full p-2.5 text-xs font-bold bg-slate-50 dark:bg-zinc-800 border rounded-xl" />
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-400">Officiële Winnaars Senaat (9 Races)</label>
+        <div id="adminSenateGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs"></div>
+      </div>
+      <div class="space-y-2">
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-400">Officiële Winnaars Gouverneurs (8 Races)</label>
+        <div id="adminGovGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs"></div>
+      </div>
+      <div class="space-y-2">
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-400">Officiële Winnaars House Swing Districts (8 Races)</label>
+        <div id="adminHouseDistGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs"></div>
+      </div>
+
+      <div class="pt-4 border-t border-slate-100 dark:border-zinc-800 flex justify-end gap-3">
+        <button onclick="closeAdminModal()" class="px-4 py-2 text-xs font-bold rounded-xl border">Annuleren</button>
+        <button onclick="publishOfficialResults()" class="px-5 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-md">Uitslag Opslaan</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="border-t border-slate-200/80 dark:border-zinc-800/80 py-6 text-xs text-slate-400 text-center mt-12 bg-white/50 dark:bg-zinc-900/40">
+    <div class="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div class="flex items-center gap-2 font-logo font-bold tracking-tight text-slate-600 dark:text-zinc-400">
+        <span>🏛️ ZETELPRONOSTIEK 2026</span> &bull; <span class="font-sans font-normal text-slate-400">&copy; US Midterms Prediction League</span>
+      </div>
+      <button onclick="promptAdminLogin()" class="text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 flex items-center gap-1.5 transition">
+        <i data-lucide="lock" class="w-3.5 h-3.5"></i> <span>Beheerder</span>
+      </button>
+    </div>
+  </footer>
+
+  <script>
+    // =========================================================================
+    // CONFIGURATIE (de anon-key is bedoeld om publiek te zijn; er staan GEEN geheimen meer in dit bestand)
+    // =========================================================================
+    const SUPABASE_URL = "https://huqsjpafolxfgbuabwff.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh1cXNqcGFmb2x4ZmdidWFid2ZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMwNDE2OTUsImV4cCI6MjEwODYxNzY5NX0.e8XaZ-JiW54sZWw2T46uGhrXBPE-F9JkcwiwWo6C-r0";
+    // Spelers loggen in met gebruikersnaam; intern wordt dat <gebruikersnaam>@<dit domein>.
+    // Supabase eist een domein MET MX-records. Er wordt nooit een mail verstuurd zolang "Confirm email" uit staat.
+    const USERNAME_DOMAIN = "gmail.com";
+    // =========================================================================
+
+    // Vangnet voor omgevingen waar localStorage geblokkeerd is (bv. Google Sites sandbox)
+    const memStore = {};
+    const safeStorage = {
+      getItem: (k) => {
+        try { return window.localStorage.getItem(k); } catch(e) { return memStore[k] || null; }
+      },
+      setItem: (k, v) => {
+        try { window.localStorage.setItem(k, v); } catch(e) { memStore[k] = String(v); }
+      },
+      removeItem: (k) => {
+        try { window.localStorage.removeItem(k); } catch(e) { delete memStore[k]; }
+      }
+    };
+
+    function safeParse(str, fallback) {
+      try { const v = JSON.parse(str); return v === null || v === undefined ? fallback : v; }
+      catch(e) { return fallback; }
+    }
+
+    // Supabase client (Auth + database)
+    let sb = null;
+    try {
+      if (window.supabase && window.supabase.createClient) {
+        sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+          auth: { storage: safeStorage, persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
+        });
+      } else {
+        console.error('supabase-js is niet geladen (CDN geblokkeerd?).');
+      }
+    } catch(e) { console.error('Supabase client fout:', e); }
+
+    const SENATE_BATTLEGROUNDS = [
+      { id: 'TX', state: 'Texas', rep: 'Ken Paxton (R)', dem: 'James Talarico (D)', desc: 'Nek-aan-nek na voorverkiezing Paxton vs. Cornyn.' },
+      { id: 'NC', state: 'North Carolina', rep: 'Michael Whatley (R)', dem: 'Roy Cooper (D)', desc: 'Open seat na pensioen Thom Tillis; Cooper zeer populair.' },
+      { id: 'GA', state: 'Georgia', rep: 'Mike Collins (R)', dem: 'Jon Ossoff (D, inc)', desc: 'Ossoff verdedigt zijn nipte zetel in swing state Georgia.' },
+      { id: 'ME', state: 'Maine', rep: 'Susan Collins (R, inc)', dem: 'Troy Jackson (D)', desc: 'Collins vecht voor herverkiezing in federaal blauw New England.' },
+      { id: 'MI', state: 'Michigan', rep: 'Mike Rogers (R)', dem: 'Abdul El-Sayed (D)', desc: 'Open seat na vertrek van Gary Peters in de Rust Belt.' },
+      { id: 'OH', state: 'Ohio', rep: 'Jon Husted (R, inc)', dem: 'Sherrod Brown (D)', desc: 'Husted (opvolger JD Vance) vs. veteraan Brown.' },
+      { id: 'IA', state: 'Iowa', rep: 'Ashley Hinson (R)', dem: 'Josh Turek (D)', desc: 'Open seat na pensioen Joni Ernst; onverwacht krap.' },
+      { id: 'AK', state: 'Alaska', rep: 'Dan Sullivan (R, inc)', dem: 'Mary Peltola (D)', desc: 'Ranked-choice voting geeft Peltola serieuze flip-kansen.' },
+      { id: 'KS', state: 'Kansas', rep: 'Roger Marshall (R, inc)', dem: 'Adam Hamilton (D)', desc: 'Hamilton verkleint marge drastisch in dieprood Kansas.' }
+    ];
+
+    const GOVERNOR_RACES = [
+      { id: 'GA_GOV', state: 'Georgia', stateId: 'GA', rep: 'Rick Jackson (R)', dem: 'Keisha Lance Bottoms (D)', desc: 'Kemp term-limited; Lance Bottoms wil winst.' },
+      { id: 'NV_GOV', state: 'Nevada', stateId: 'NV', rep: 'Joe Lombardo (R, inc)', dem: 'Aaron Ford (D)', desc: 'Gematigde Lombardo tegen procureur-generaal Ford.' },
+      { id: 'WI_GOV', state: 'Wisconsin', stateId: 'WI', rep: 'Tom Tiffany (R)', dem: 'David Crowley (D)', desc: 'Tony Evers vertrekt; fel gevecht in 50/50-staat.' },
+      { id: 'IA_GOV', state: 'Iowa', stateId: 'IA', rep: 'Zach Lahn (R)', dem: 'Rob Sand (D)', desc: 'Kim Reynolds vertrekt; Sand trekt onafhankelijken.' },
+      { id: 'AZ_GOV', state: 'Arizona', stateId: 'AZ', rep: 'Andy Biggs (R)', dem: 'Katie Hobbs (D, inc)', desc: 'Hobbs verdedigt haar krappe marge tegen Biggs.' },
+      { id: 'OH_GOV', state: 'Ohio', stateId: 'OH', rep: 'Vivek Ramaswamy (R)', dem: 'Amy Acton (D)', desc: 'DeWine term-limited; Ramaswamy vs. Acton.' },
+      { id: 'KS_GOV', state: 'Kansas', stateId: 'KS', rep: 'Ty Masterson (R)', dem: 'Cindy Holscher (D)', desc: 'Na 2 termijnen Kelly willen Republikeinen Kansas terug.' },
+      { id: 'MI_GOV', state: 'Michigan', stateId: 'MI', rep: 'John James (R)', dem: 'Jocelyn Benson (D)', desc: 'Whitmer term-limited; topduel Benson vs. James.' }
+    ];
+
+    const HOUSE_DISTRICTS = [
+      { id: 'CA_22', district: 'Californië CA-22', rep: 'David Valadao (R)', dem: 'Rudy Salas (D)', desc: 'Central Valley; traditioneel zware Latino-opkomst.' },
+      { id: 'NY_19', district: 'New York NY-19', rep: 'Marc Molinaro (R)', dem: 'Josh Riley (D)', desc: 'Upstate Hudson Valley; beslissend swingdistrict.' },
+      { id: 'PA_07', district: 'Pennsylvania PA-07', rep: 'Ryan Mackenzie (R)', dem: 'Susan Wild (D)', desc: 'Lehigh Valley arbeidersdistrict in de Rust Belt.' },
+      { id: 'AZ_01', district: 'Arizona AZ-01', rep: 'David Schweikert (R)', dem: 'Amish Shah (D)', desc: 'Scottsdale & Phoenix buitenwijken.' },
+      { id: 'NE_02', district: 'Nebraska NE-02', rep: 'Don Bacon (R)', dem: 'Tony Vargas (D)', desc: 'Omaha "Blue Dot" split-electoral district.' },
+      { id: 'ME_02', district: 'Maine ME-02', rep: 'Austin Theriault (R)', dem: 'Jared Golden (D)', desc: 'Plattelandsdistrict dat Trump won.' },
+      { id: 'TX_34', district: 'Texas TX-34', rep: 'Mayra Flores (R)', dem: 'Vicente Gonzalez (D)', desc: 'Rio Grande Valley; strijd om de hispanics.' },
+      { id: 'NV_03', district: 'Nevada NV-03', rep: 'Drew Johnson (R)', dem: 'Susie Lee (D)', desc: 'Las Vegas buitenwijken met veel onafhankelijken.' }
+    ];
+
+    let currentUser = null;   // { id, username, leagues, prediction, updated_at }
+    let officialResults = safeParse(safeStorage.getItem('zp_official_results'), null);
+    let authMode = 'login';   // 'login' | 'register'
+
+    let currentPrediction = {
+      senateMajority: null,
+      houseMajority: null,
+      houseDemSeats: 218,
+      senateDemSeats: 49,
+      senateRaces: {},
+      govRaces: {},
+      houseDistricts: {},
+      updated_at: null
+    };
+
+    function esc(s) {
+      return String(s === null || s === undefined ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function updateIcons() {
+      try { if (window.lucide) lucide.createIcons(); } catch(e){}
+    }
+
+    function showToast(message, isError) {
+      const toast = document.getElementById('toastNotification');
+      if (!toast) return;
+      document.getElementById('toastMessage').textContent = message;
+      toast.classList.toggle('bg-emerald-600', !isError);
+      toast.classList.toggle('bg-amber-600', !!isError);
+      toast.classList.remove('opacity-0', '-translate-y-8');
+      toast.classList.add('opacity-100', 'translate-y-0');
+      setTimeout(() => {
+        toast.classList.remove('opacity-100', 'translate-y-0');
+        toast.classList.add('opacity-0', '-translate-y-8');
+      }, 4500);
+    }
+
+    function initTheme() {
+      const btn = document.getElementById('themeToggleBtn');
+      const sun = document.getElementById('sunIcon');
+      const moon = document.getElementById('moonIcon');
+      const apply = (dark) => {
+        document.documentElement.classList.toggle('dark', dark);
+        if (sun) sun.classList.toggle('hidden', !dark);
+        if (moon) moon.classList.toggle('hidden', dark);
+      };
+      apply(safeStorage.getItem('zp_theme') === 'dark');
+      if (btn) btn.addEventListener('click', () => {
+        const dark = !document.documentElement.classList.contains('dark');
+        safeStorage.setItem('zp_theme', dark ? 'dark' : 'light');
+        apply(dark);
+      });
+    }
+
+    function switchTab(tab) {
+      const tabs = ['pronostiek', 'klassement', 'vrienden'];
+      tabs.forEach(t => {
+        const el = document.getElementById(`content-${t}`);
+        const btn = document.getElementById(`tab-${t}`);
+        if (el) el.classList.add('hidden');
+        if (btn) {
+          btn.classList.remove('border-slate-900', 'dark:border-zinc-100', 'text-slate-900', 'dark:text-zinc-100');
+          btn.classList.add('border-transparent', 'text-slate-500', 'dark:text-zinc-400');
+        }
+      });
+
+      const activeEl = document.getElementById(`content-${tab}`);
+      const activeBtn = document.getElementById(`tab-${tab}`);
+      if (activeEl) activeEl.classList.remove('hidden');
+      if (activeBtn) {
+        activeBtn.classList.add('border-slate-900', 'dark:border-zinc-100', 'text-slate-900', 'dark:text-zinc-100');
+        activeBtn.classList.remove('border-transparent', 'text-slate-500', 'dark:text-zinc-400');
+      }
+
+      if (tab === 'klassement') renderLeaderboard();
+      if (tab === 'vrienden') renderMyLeagues();
+      updateIcons();
+    }
+
+    // =========================================================================
+    // DATABASE (via supabase-js; schrijven kan alleen met een geldige login)
+    // =========================================================================
+    const PROFILE_COLS = 'id,username,leagues,prediction,score,updated_at';
+
+    async function fetchAllUsers() {
+      if (!sb) return null;
+      try {
+        const { data, error } = await sb.from('zetel_users').select(PROFILE_COLS);
+        if (error) { console.error('Spelers laden mislukt:', error); return null; }
+        return data || [];
+      } catch(e) { console.error(e); return null; }
+    }
+
+    async function fetchProfileById(id) {
+      if (!sb) return null;
+      try {
+        const { data, error } = await sb.from('zetel_users').select(PROFILE_COLS).eq('id', id).maybeSingle();
+        if (error) { console.error('Profiel laden mislukt:', error); return null; }
+        return data || null;
+      } catch(e) { console.error(e); return null; }
+    }
+
+    async function fetchProfileByUsername(username) {
+      if (!sb) return null;
+      try {
+        const { data, error } = await sb.from('zetel_users').select(PROFILE_COLS).eq('username', username).maybeSingle();
+        if (error) { console.error('Profiel laden mislukt:', error); return null; }
+        return data || null;
+      } catch(e) { console.error(e); return null; }
+    }
+
+    async function fetchOfficialResults() {
+      if (!sb) return null;
+      try {
+        const { data, error } = await sb.from('zetel_results').select('data').eq('id', 'us_midterms_2026').maybeSingle();
+        if (error) { console.error('Uitslag laden mislukt:', error); return null; }
+        return data ? data.data : null;
+      } catch(e) { console.error(e); return null; }
+    }
+
+    // true ALLEEN als er echt een rij is aangepast
+    async function updateOwnProfile(patch) {
+      if (!sb || !currentUser) return false;
+      try {
+        const { data, error } = await sb.from('zetel_users').update(patch).eq('id', currentUser.id).select('id');
+        if (error) { console.error('Opslaan mislukt:', error); return false; }
+        if (!data || data.length === 0) {
+          console.error('Opslaan: 0 rijen aangepast (RLS-policy ontbreekt of sessie verlopen).');
+          return false;
+        }
+        return true;
+      } catch(e) { console.error(e); return false; }
+    }
+
+    // =========================================================================
+    // UI OPBOUW
+    // =========================================================================
+    function initBattlegroundGrids() {
+      const sContainer = document.getElementById('senateRacesGrid');
+      if (sContainer) {
+        sContainer.innerHTML = '';
+        SENATE_BATTLEGROUNDS.forEach(r => {
+          const card = document.createElement('div');
+          card.id = `race-card-${r.id}`;
+          card.className = "p-4 rounded-2xl border border-slate-200/80 dark:border-zinc-800 space-y-3 bg-slate-50/60 dark:bg-zinc-800/30 transition";
+          card.innerHTML = `
+            <div class="flex justify-between items-start">
+              <div>
+                <span class="font-extrabold text-sm block">${r.state}</span>
+                <p class="text-[11px] text-slate-500 leading-tight mt-0.5">${r.desc}</p>
+              </div>
+              <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-200 dark:bg-zinc-700 text-slate-600 dark:text-zinc-300">${r.id}</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2 pt-1">
+              <button type="button" onclick="selectRace('senate', '${r.id}', 'DEM')" id="sen-${r.id}-DEM" class="py-2.5 px-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 transition text-center truncate">${r.dem}</button>
+              <button type="button" onclick="selectRace('senate', '${r.id}', 'REP')" id="sen-${r.id}-REP" class="py-2.5 px-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 transition text-center truncate">${r.rep}</button>
+            </div>
+          `;
+          sContainer.appendChild(card);
+        });
+      }
+
+      const gContainer = document.getElementById('govRacesGrid');
+      if (gContainer) {
+        gContainer.innerHTML = '';
+        GOVERNOR_RACES.forEach(g => {
+          const card = document.createElement('div');
+          card.id = `gov-card-${g.stateId}`;
+          card.className = "p-4 rounded-2xl border border-slate-200/80 dark:border-zinc-800 space-y-3 bg-slate-50/60 dark:bg-zinc-800/30 transition";
+          card.innerHTML = `
+            <div>
+              <span class="font-extrabold text-sm block">${g.state}</span>
+              <p class="text-[11px] text-slate-500 leading-tight mt-0.5">${g.desc}</p>
+            </div>
+            <div class="grid grid-cols-2 gap-2 pt-1">
+              <button type="button" onclick="selectRace('gov', '${g.id}', 'DEM')" id="gov-${g.id}-DEM" class="py-2.5 px-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:border-dem text-slate-700 dark:text-zinc-300 transition text-center truncate">${g.dem}</button>
+              <button type="button" onclick="selectRace('gov', '${g.id}', 'REP')" id="gov-${g.id}-REP" class="py-2.5 px-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:border-rep text-slate-700 dark:text-zinc-300 transition text-center truncate">${g.rep}</button>
+            </div>
+          `;
+          gContainer.appendChild(card);
+        });
+      }
+
+      const hContainer = document.getElementById('houseDistrictsGrid');
+      if (hContainer) {
+        hContainer.innerHTML = '';
+        HOUSE_DISTRICTS.forEach(h => {
+          const card = document.createElement('div');
+          card.id = `house-card-${h.id}`;
+          card.className = "p-4 rounded-2xl border border-slate-200/80 dark:border-zinc-800 space-y-3 bg-slate-50/60 dark:bg-zinc-800/30 transition";
+          card.innerHTML = `
+            <div>
+              <span class="font-extrabold text-sm block">${h.district}</span>
+              <p class="text-[11px] text-slate-500 leading-tight mt-0.5">${h.desc}</p>
+            </div>
+            <div class="grid grid-cols-2 gap-2 pt-1">
+              <button type="button" onclick="selectRace('houseDist', '${h.id}', 'DEM')" id="dist-${h.id}-DEM" class="py-2.5 px-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 transition text-center truncate">${h.dem}</button>
+              <button type="button" onclick="selectRace('houseDist', '${h.id}', 'REP')" id="dist-${h.id}-REP" class="py-2.5 px-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 transition text-center truncate">${h.rep}</button>
+            </div>
+          `;
+          hContainer.appendChild(card);
+        });
+      }
+    }
+
+    function setupInteractiveMap() {
+      const tooltip = document.getElementById('map-tooltip');
+      const paths = document.querySelectorAll('#us-map path, #us-map circle');
+      paths.forEach(el => {
+        if (el.id === 'path67') return;
+        el.addEventListener('mouseenter', () => {
+          const info = el.getAttribute('data-info');
+          if (info && tooltip) { tooltip.textContent = info; tooltip.style.display = 'block'; }
+        });
+        el.addEventListener('mousemove', (e) => {
+          if (tooltip) {
+            tooltip.style.top = `${e.clientY - 12}px`;
+            tooltip.style.left = `${e.clientX}px`;
+          }
+        });
+        el.addEventListener('mouseleave', () => { if (tooltip) tooltip.style.display = 'none'; });
+        el.addEventListener('click', () => scrollToState(el.id));
+      });
+    }
+
+    function scrollToState(stateId) {
+      const card = document.getElementById(`race-card-${stateId}`) || document.getElementById(`gov-card-${stateId}`);
+      if (card) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        card.classList.add('ring-4', 'ring-amber-400');
+        setTimeout(() => card.classList.remove('ring-4', 'ring-amber-400'), 1500);
+      }
+    }
+
+    function selectMajority(chamber, party) {
+      if (chamber === 'senate') currentPrediction.senateMajority = party;
+      if (chamber === 'house') currentPrediction.houseMajority = party;
+      updatePredictionUI();
+    }
+
+    function selectRace(category, raceId, party) {
+      if (category === 'senate') {
+        currentPrediction.senateRaces[raceId] = party;
+      } else if (category === 'gov') {
+        currentPrediction.govRaces[raceId] = party;
+      } else if (category === 'houseDist') {
+        currentPrediction.houseDistricts[raceId] = party;
+      }
+      updatePredictionUI();
+    }
+
+    function updateSvgMapElement(stateCode, party) {
+      const el = document.getElementById(stateCode);
+      if (el) el.setAttribute('fill', party === 'DEM' ? '#1D4ED8' : (party === 'REP' ? '#DC2626' : '#CBD5E1'));
+    }
+
+    // Kleurt de hele kaart opnieuw (Senaat gaat voor Gouverneur)
+    function refreshMapColors() {
+      const colors = {};
+      GOVERNOR_RACES.forEach(g => {
+        const p = currentPrediction.govRaces[g.id];
+        if (p) colors[g.stateId] = p;
+      });
+      SENATE_BATTLEGROUNDS.forEach(r => {
+        const p = currentPrediction.senateRaces[r.id];
+        if (p) colors[r.id] = p;
+      });
+      const allIds = new Set([
+        ...SENATE_BATTLEGROUNDS.map(r => r.id),
+        ...GOVERNOR_RACES.map(g => g.stateId)
+      ]);
+      allIds.forEach(id => updateSvgMapElement(id, colors[id] || null));
+    }
+
+    function updateHouseSlider(val) {
+      currentPrediction.houseDemSeats = parseInt(val);
+      const rep = 435 - currentPrediction.houseDemSeats;
+      const demLbl = document.getElementById('houseDemLabel');
+      const repLbl = document.getElementById('houseRepLabel');
+      if (demLbl) demLbl.textContent = val;
+      if (repLbl) repLbl.textContent = rep;
+      const demPercent = (val / 435) * 100;
+      const dBar = document.getElementById('houseDemBar');
+      const rBar = document.getElementById('houseRepBar');
+      if (dBar) dBar.style.width = demPercent + '%';
+      if (rBar) rBar.style.width = (100 - demPercent) + '%';
+      const slider = document.getElementById('houseSlider');
+      if (slider && String(slider.value) !== String(val)) slider.value = val;
+    }
+
+    function updateSenateSlider(val) {
+      currentPrediction.senateDemSeats = parseInt(val);
+      const rep = 100 - currentPrediction.senateDemSeats;
+      const demLbl = document.getElementById('senateDemLabel');
+      const repLbl = document.getElementById('senateRepLabel');
+      if (demLbl) demLbl.textContent = val;
+      if (repLbl) repLbl.textContent = rep;
+      const dBar = document.getElementById('senateDemBar');
+      const rBar = document.getElementById('senateRepBar');
+      if (dBar) dBar.style.width = val + '%';
+      if (rBar) rBar.style.width = rep + '%';
+      const slider = document.getElementById('senateSlider');
+      if (slider && String(slider.value) !== String(val)) slider.value = val;
+    }
+
+    const BTN_OFF = "py-2.5 px-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 text-center truncate";
+    const BTN_DEM = "py-2.5 px-2 text-xs font-bold rounded-xl text-white bg-dem shadow-sm text-center truncate";
+    const BTN_REP = "py-2.5 px-2 text-xs font-bold rounded-xl text-white bg-rep shadow-sm text-center truncate";
+
+    function updatePredictionUI() {
+      ['DEM', 'REP'].forEach(p => {
+        const sBtn = document.getElementById(`senate-${p.toLowerCase()}`);
+        if (sBtn) {
+          sBtn.className = currentPrediction.senateMajority === p
+            ? `py-3 px-4 rounded-xl font-bold text-sm text-white shadow-md flex items-center justify-center gap-2 ${p === 'DEM' ? 'bg-dem shadow-blue-500/20' : 'bg-rep shadow-red-500/20'}`
+            : `py-3 px-4 rounded-xl font-bold text-sm border-2 border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 flex items-center justify-center gap-2`;
+          if (currentPrediction.senateMajority === p) {
+            const bdg = document.getElementById('senatePickedBadge');
+            if (bdg) { bdg.textContent = p; bdg.className = `text-xs font-bold px-2 py-0.5 rounded text-white ${p === 'DEM' ? 'bg-dem' : 'bg-rep'}`; }
+          }
+        }
+        const hBtn = document.getElementById(`house-${p.toLowerCase()}`);
+        if (hBtn) {
+          hBtn.className = currentPrediction.houseMajority === p
+            ? `py-3 px-4 rounded-xl font-bold text-sm text-white shadow-md flex items-center justify-center gap-2 ${p === 'DEM' ? 'bg-dem shadow-blue-500/20' : 'bg-rep shadow-red-500/20'}`
+            : `py-3 px-4 rounded-xl font-bold text-sm border-2 border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 flex items-center justify-center gap-2`;
+          if (currentPrediction.houseMajority === p) {
+            const bdg = document.getElementById('housePickedBadge');
+            if (bdg) { bdg.textContent = p; bdg.className = `text-xs font-bold px-2 py-0.5 rounded text-white ${p === 'DEM' ? 'bg-dem' : 'bg-rep'}`; }
+          }
+        }
+      });
+
+      updateHouseSlider(currentPrediction.houseDemSeats);
+      updateSenateSlider(currentPrediction.senateDemSeats);
+
+      SENATE_BATTLEGROUNDS.forEach(r => {
+        const pick = currentPrediction.senateRaces[r.id];
+        const dBtn = document.getElementById(`sen-${r.id}-DEM`);
+        const rBtn = document.getElementById(`sen-${r.id}-REP`);
+        if (dBtn && rBtn) {
+          dBtn.className = pick === 'DEM' ? BTN_DEM : BTN_OFF;
+          rBtn.className = pick === 'REP' ? BTN_REP : BTN_OFF;
+        }
+      });
+
+      GOVERNOR_RACES.forEach(g => {
+        const pick = currentPrediction.govRaces[g.id];
+        const dBtn = document.getElementById(`gov-${g.id}-DEM`);
+        const rBtn = document.getElementById(`gov-${g.id}-REP`);
+        if (dBtn && rBtn) {
+          dBtn.className = pick === 'DEM' ? BTN_DEM : BTN_OFF;
+          rBtn.className = pick === 'REP' ? BTN_REP : BTN_OFF;
+        }
+      });
+
+      HOUSE_DISTRICTS.forEach(h => {
+        const pick = currentPrediction.houseDistricts[h.id];
+        const dBtn = document.getElementById(`dist-${h.id}-DEM`);
+        const rBtn = document.getElementById(`dist-${h.id}-REP`);
+        if (dBtn && rBtn) {
+          dBtn.className = pick === 'DEM' ? BTN_DEM : BTN_OFF;
+          rBtn.className = pick === 'REP' ? BTN_REP : BTN_OFF;
+        }
+      });
+
+      refreshMapColors();
+    }
+
+    // =========================================================================
+    // OPSLAAN
+    // =========================================================================
+    async function savePrediction() {
+      if (!currentUser) { openAuthModal('login'); return; }
+      if (!currentPrediction.senateMajority || !currentPrediction.houseMajority) {
+        showToast("Selecteer eerst wie de meerderheid haalt in Senaat en Huis.", true);
+        return;
+      }
+
+      const now = new Date().toISOString();
+      currentPrediction.updated_at = now;
+
+      const saved = await updateOwnProfile({ prediction: currentPrediction, updated_at: now });
+
+      if (saved) {
+        currentUser.prediction = JSON.parse(JSON.stringify(currentPrediction));
+        currentUser.updated_at = now;
+        showToast("✅ Je pronostiek is succesvol opgeslagen!");
+      } else {
+        showToast("⚠️ Opslaan mislukt. Log opnieuw in en probeer het nog eens (zie console, F12)", true);
+      }
+      renderLeaderboard();
+    }
+
+    function calculateUserScore(pred, official) {
+      if (!pred || !official) return 0;
+      let score = 0;
+      if (pred.senateMajority && pred.senateMajority === official.senateMajority) score += 30;
+      if (pred.houseMajority && pred.houseMajority === official.houseMajority) score += 30;
+
+      if (typeof pred.houseDemSeats === 'number' && typeof official.houseDemSeats === 'number') {
+        const houseDiff = Math.abs(pred.houseDemSeats - official.houseDemSeats);
+        score += Math.max(0, 50 - (houseDiff * 3));
+      }
+      if (typeof pred.senateDemSeats === 'number' && typeof official.senateDemSeats === 'number') {
+        const senateDiff = Math.abs(pred.senateDemSeats - official.senateDemSeats);
+        score += Math.max(0, 50 - (senateDiff * 5));
+      }
+
+      SENATE_BATTLEGROUNDS.forEach(r => {
+        if (pred.senateRaces && pred.senateRaces[r.id] && pred.senateRaces[r.id] === official.senateRaces?.[r.id]) score += 15;
+      });
+      GOVERNOR_RACES.forEach(g => {
+        if (pred.govRaces && pred.govRaces[g.id] && pred.govRaces[g.id] === official.govRaces?.[g.id]) score += 15;
+      });
+      HOUSE_DISTRICTS.forEach(h => {
+        if (pred.houseDistricts && pred.houseDistricts[h.id] && pred.houseDistricts[h.id] === official.houseDistricts?.[h.id]) score += 10;
+      });
+
+      return score;
+    }
+
+    function formatTime(isoStr) {
+      if (!isoStr) return '<span class="text-slate-400 italic text-[11px]">-</span>';
+      try {
+        const d = new Date(isoStr);
+        return d.toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+      } catch (e) { return '-'; }
+    }
+
+    async function renderLeaderboard() {
+      const tbody = document.getElementById('leaderboardBody');
+      if (!tbody) return;
+
+      let users = await fetchAllUsers();
+      const loadFailed = users === null;
+      if (loadFailed) users = [];
+
+      const off = await fetchOfficialResults();
+      if (off) officialResults = off;
+
+      const filterSelect = document.getElementById('leagueFilterSelect');
+      if (filterSelect) {
+        const currentSelectedLeague = filterSelect.value;
+        const allLeagues = new Set();
+        users.forEach(u => (u.leagues || []).forEach(l => allLeagues.add(l)));
+
+        filterSelect.innerHTML = '<option value="ALL">Algemeen Klassement (Iedereen)</option>';
+        allLeagues.forEach(l => {
+          const opt = document.createElement('option');
+          opt.value = l;
+          opt.textContent = `Liga: ${l}`;
+          if (l === currentSelectedLeague) opt.selected = true;
+          filterSelect.appendChild(opt);
+        });
+
+        if (filterSelect.value !== 'ALL') {
+          users = users.filter(u => (u.leagues || []).includes(filterSelect.value));
+        }
+      }
+
+      users.forEach(u => { u.score = calculateUserScore(u.prediction, officialResults); });
+      users.sort((a, b) => (b.score || 0) - (a.score || 0));
+
+      tbody.innerHTML = '';
+
+      if (users.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-xs text-slate-400">${loadFailed ? 'Klassement kon niet geladen worden (zie console, F12).' : 'Nog geen deelnemers in deze ranglijst.'}</td></tr>`;
+        return;
+      }
+
+      users.forEach((u, idx) => {
+        let correctSenate = 0, correctGov = 0, correctDist = 0;
+        const p = u.prediction;
+
+        if (officialResults && p) {
+          if (p.senateRaces && officialResults.senateRaces) {
+            SENATE_BATTLEGROUNDS.forEach(r => { if (p.senateRaces[r.id] && p.senateRaces[r.id] === officialResults.senateRaces[r.id]) correctSenate++; });
+          }
+          if (p.govRaces && officialResults.govRaces) {
+            GOVERNOR_RACES.forEach(g => { if (p.govRaces[g.id] && p.govRaces[g.id] === officialResults.govRaces[g.id]) correctGov++; });
+          }
+          if (p.houseDistricts && officialResults.houseDistricts) {
+            HOUSE_DISTRICTS.forEach(h => { if (p.houseDistricts[h.id] && p.houseDistricts[h.id] === officialResults.houseDistricts[h.id]) correctDist++; });
+          }
+        }
+
+        const isMe = currentUser && u.id === currentUser.id;
+        const tr = document.createElement('tr');
+        tr.className = isMe ? "bg-amber-50/60 dark:bg-amber-950/20 font-bold" : "hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition";
+        tr.innerHTML = `
+          <td class="py-3.5 px-4 text-center font-bold text-xs text-slate-400">${idx + 1}</td>
+          <td class="py-3.5 px-4 font-bold">
+            <div class="flex items-center gap-2">
+              ${esc(u.username)}
+              ${isMe ? '<span class="text-[10px] bg-amber-200 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 px-1.5 py-0.5 rounded font-extrabold">Jij</span>' : ''}
+            </div>
+          </td>
+          <td class="py-3.5 px-4 text-xs font-semibold">
+            ${p ? `<span class="${p.senateMajority === 'DEM' ? 'text-dem' : 'text-rep'}">${p.senateMajority || '-'}</span> / <span class="${p.houseMajority === 'DEM' ? 'text-dem' : 'text-rep'}">${p.houseMajority || '-'}</span>` : '<span class="italic text-slate-400">-</span>'}
+          </td>
+          <td class="py-3.5 px-4 text-center text-xs">${officialResults ? `<span class="font-bold">${correctSenate}</span> / 9` : (p?.senateRaces ? Object.keys(p.senateRaces).length + ' ingevuld' : '-')}</td>
+          <td class="py-3.5 px-4 text-center text-xs">${officialResults ? `<span class="font-bold">${correctGov}</span> / 8` : (p?.govRaces ? Object.keys(p.govRaces).length + ' ingevuld' : '-')}</td>
+          <td class="py-3.5 px-4 text-center text-xs">${officialResults ? `<span class="font-bold">${correctDist}</span> / 8` : (p?.houseDistricts ? Object.keys(p.houseDistricts).length + ' ingevuld' : '-')}</td>
+          <td class="py-3.5 px-4 text-xs text-slate-500 dark:text-zinc-400 font-normal">${formatTime(u.updated_at || p?.updated_at)}</td>
+          <td class="py-3.5 px-4 text-right font-black text-sm">${u.score || 0} pt</td>
+          <td class="py-3.5 px-4 text-center"></td>
+        `;
+        const btn = document.createElement('button');
+        btn.textContent = 'Inkijken';
+        btn.className = "text-xs px-2.5 py-1 rounded-lg border border-slate-200 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-800 font-bold transition";
+        btn.addEventListener('click', () => inspectUser(u.username));
+        tr.lastElementChild.appendChild(btn);
+        tbody.appendChild(tr);
+      });
+    }
+
+    // =========================================================================
+    // INLOGGEN / REGISTREREN (Supabase Auth)
+    // =========================================================================
+    // Elke naam van 3 tot 20 tekens is toegestaan (spaties, accenten, ...). Geen e-mail nodig:
+    // intern wordt de naam omgezet naar een verborgen technisch adres dat Supabase Auth vereist.
+    const USERNAME_RE = /^[^\x00-\x1F\x7F]{3,20}$/;
+    const MAX_USERNAME_BYTES = 30;
+    const usernameBytes = (u) => new TextEncoder().encode(u.toLowerCase());
+    const usernameToEmail = (u) => {
+      const hex = Array.from(usernameBytes(u), b => b.toString(16).padStart(2, '0')).join('');
+      return `u${hex}@${USERNAME_DOMAIN}`;
+    };
+
+    function setAuthMode(mode) {
+      authMode = mode === 'register' ? 'register' : 'login';
+      const title = document.getElementById('authTitle');
+      const submit = document.getElementById('authSubmitText');
+      const toggle = document.getElementById('authToggleBtn');
+      const alertBox = document.getElementById('authModalAlert');
+      if (title) title.textContent = authMode === 'register' ? 'Account aanmaken' : 'Inloggen';
+      if (submit) submit.textContent = authMode === 'register' ? 'Registreren' : 'Inloggen';
+      if (toggle) toggle.textContent = authMode === 'register' ? 'Al een account? Inloggen' : 'Nog geen account? Registreren';
+      if (alertBox) alertBox.className = 'hidden text-xs p-3 rounded-xl font-medium';
+    }
+
+    function openAuthModal(mode) {
+      setAuthMode(mode || 'login');
+      const pw = document.getElementById('authPasswordInput');
+      if (pw) pw.value = '';
+      const m = document.getElementById('authModal');
+      if (m) { m.classList.remove('hidden'); m.classList.add('flex'); }
+    }
+    function closeAuthModal() {
+      const m = document.getElementById('authModal');
+      if (m) { m.classList.add('hidden'); m.classList.remove('flex'); }
+    }
+
+    function showAuthAlert(msg) {
+      const alertBox = document.getElementById('authModalAlert');
+      if (!alertBox) return;
+      alertBox.textContent = msg;
+      alertBox.className = "text-xs p-3 rounded-xl font-medium bg-red-100 text-red-600 block";
+    }
+
+    function translateAuthError(error) {
+      const msg = String((error && error.message) || error || '').toLowerCase();
+      if (msg.includes('invalid login credentials')) return 'Gebruikersnaam of wachtwoord onjuist.';
+      if (msg.includes('already registered') || msg.includes('already been registered')) return 'Deze gebruikersnaam bestaat al.';
+      if (msg.includes('at least') && msg.includes('characters')) return 'Wachtwoord moet minstens 6 tekens hebben.';
+      if (msg.includes('rate limit') || msg.includes('too many')) return 'Te veel pogingen. Wacht even en probeer opnieuw.';
+      if (msg.includes('email') && (msg.includes('invalid') || msg.includes('not valid'))) return 'Ongeldig e-mailadres: pas USERNAME_DOMAIN in de code aan naar een domein met MX-records.';
+      if (msg.includes('signups not allowed')) return 'Registreren staat uit in Supabase (Authentication → Providers → Email).';
+      return (error && error.message) ? error.message : 'Onbekende fout.';
+    }
+
+    function setAuthBusy(busy) {
+      const btn = document.querySelector('#authModalForm button[type="submit"]');
+      if (btn) { btn.disabled = busy; btn.style.opacity = busy ? '0.6' : '1'; }
+    }
+
+    function loginSuccess(user) {
+      currentUser = user;
+      const lBtn = document.getElementById('loginModalBtn');
+      const uBdg = document.getElementById('userNavBadge');
+      const uName = document.getElementById('navUsername');
+      if (lBtn) lBtn.classList.add('hidden');
+      if (uBdg) { uBdg.classList.remove('hidden'); uBdg.classList.add('flex'); }
+      if (uName) uName.textContent = user.username;
+
+      if (user.prediction && typeof user.prediction === 'object') {
+        currentPrediction = {
+          senateMajority: user.prediction.senateMajority || null,
+          houseMajority: user.prediction.houseMajority || null,
+          houseDemSeats: user.prediction.houseDemSeats !== undefined ? user.prediction.houseDemSeats : 218,
+          senateDemSeats: user.prediction.senateDemSeats !== undefined ? user.prediction.senateDemSeats : 49,
+          senateRaces: user.prediction.senateRaces || {},
+          govRaces: user.prediction.govRaces || {},
+          houseDistricts: user.prediction.houseDistricts || {},
+          updated_at: user.prediction.updated_at || null
+        };
+        const ntc = document.getElementById('predictionNotice');
+        if (ntc) ntc.textContent = "Jouw voorspelling is actief geladen. Je kunt keuzes aanpassen en opnieuw opslaan.";
+        updatePredictionUI();
+      }
+
+      renderLeaderboard();
+      updateIcons();
+    }
+
+    async function handleAuthSubmit(e) {
+      e.preventDefault();
+      if (!sb) { showAuthAlert('Geen verbinding met de database (supabase-js niet geladen).'); return; }
+
+      const username = document.getElementById('authUsernameInput').value.trim().replace(/\s+/g, ' ');
+      const password = document.getElementById('authPasswordInput').value;
+
+      if (!USERNAME_RE.test(username)) {
+        showAuthAlert('Kies een naam van 3 tot 20 tekens.');
+        return;
+      }
+      if (usernameBytes(username).length > MAX_USERNAME_BYTES) {
+        showAuthAlert('Deze naam is te lang (veel speciale tekens/emoji). Kies een kortere naam.');
+        return;
+      }
+      if (password.length < 6) {
+        showAuthAlert('Wachtwoord moet minstens 6 tekens hebben.');
+        return;
+      }
+
+      setAuthBusy(true);
+      try {
+        const email = usernameToEmail(username);
+        let profile = null;
+
+        if (authMode === 'register') {
+          const { data, error } = await sb.auth.signUp({ email, password });
+          if (error) { showAuthAlert(translateAuthError(error)); return; }
+          if (!data.session) {
+            showAuthAlert('Account aangemaakt, maar Supabase vraagt nog e-mailbevestiging. Zet "Confirm email" uit (Authentication → Providers → Email) en log daarna in.');
+            return;
+          }
+          const newProfile = {
+            id: data.user.id,
+            username,
+            leagues: [],
+            prediction: currentPrediction.senateMajority ? currentPrediction : null,
+            score: 0,
+            updated_at: new Date().toISOString()
+          };
+          const { error: insErr } = await sb.from('zetel_users').insert(newProfile);
+          if (insErr) {
+            console.error('Profiel aanmaken mislukt:', insErr);
+            showAuthAlert('Account aangemaakt, maar profiel opslaan mislukte: ' + insErr.message);
+            return;
+          }
+          profile = newProfile;
+        } else {
+          const { data, error } = await sb.auth.signInWithPassword({ email, password });
+          if (error) { showAuthAlert(translateAuthError(error)); return; }
+          profile = await fetchProfileById(data.user.id);
+          if (!profile) {
+            // Account bestaat, profielrij ontbreekt: alsnog aanmaken
+            const fresh = { id: data.user.id, username, leagues: [], prediction: null, score: 0, updated_at: new Date().toISOString() };
+            const { error: insErr } = await sb.from('zetel_users').insert(fresh);
+            if (insErr) { showAuthAlert('Profiel aanmaken mislukt: ' + insErr.message); return; }
+            profile = fresh;
+          }
+        }
+
+        loginSuccess(profile);
+        closeAuthModal();
+      } catch(err) {
+        console.error(err);
+        showAuthAlert('Er ging iets mis: ' + (err && err.message ? err.message : err));
+      } finally {
+        setAuthBusy(false);
+      }
+    }
+
+    async function handleLogout() {
+      try { if (sb) await sb.auth.signOut(); } catch(e) { console.error(e); }
+      location.reload();
+    }
+
+    // =========================================================================
+    // LIGA'S
+    // =========================================================================
+    async function createLeague() {
+      if (!currentUser) { openAuthModal('login'); return; }
+      const name = document.getElementById('newLeagueName').value.trim();
+      if (!name) return;
+      const code = name.toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 8) + '-' + Math.floor(100 + Math.random() * 900);
+
+      const leagues = (currentUser.leagues || []).slice();
+      if (!leagues.includes(code)) {
+        leagues.push(code);
+        const ok = await updateOwnProfile({ leagues });
+        if (!ok) { showToast("⚠️ Liga opslaan mislukt (zie console, F12)", true); return; }
+        currentUser.leagues = leagues;
+      }
+      document.getElementById('newLeagueName').value = '';
+      showToast(`Liga aangemaakt! Deelcode: ${code}`);
+      renderMyLeagues();
+    }
+
+    async function joinLeague() {
+      if (!currentUser) { openAuthModal('login'); return; }
+      const code = document.getElementById('joinLeagueCode').value.trim().toUpperCase();
+      if (!code) return;
+
+      const leagues = (currentUser.leagues || []).slice();
+      if (!leagues.includes(code)) {
+        leagues.push(code);
+        const ok = await updateOwnProfile({ leagues });
+        if (!ok) { showToast("⚠️ Toetreden mislukt (zie console, F12)", true); return; }
+        currentUser.leagues = leagues;
+        showToast(`Je bent toegetreden tot liga: ${code}`);
+      } else {
+        showToast("Je zit al in deze liga.", true);
+      }
+      document.getElementById('joinLeagueCode').value = '';
+      renderMyLeagues();
+    }
+
+    function renderMyLeagues() {
+      const container = document.getElementById('myLeaguesList');
+      if (!container) return;
+      container.innerHTML = '';
+      if (!currentUser) { container.innerHTML = `<div class="text-xs text-slate-400 italic col-span-full">Log eerst in om je liga's te beheren.</div>`; return; }
+
+      const leagues = currentUser.leagues || [];
+      if (leagues.length === 0) { container.innerHTML = `<div class="text-xs text-slate-400 italic col-span-full">Je bent nog geen lid van een liga.</div>`; return; }
+
+      leagues.forEach(code => {
+        const item = document.createElement('div');
+        item.className = "p-4 rounded-2xl border border-slate-200 dark:border-zinc-800 flex justify-between items-center bg-slate-50/60 dark:bg-zinc-800/40 shadow-sm";
+        item.innerHTML = `
+          <div><div class="font-mono font-black text-sm">${esc(code)}</div><div class="text-[11px] text-slate-400">Deelcode voor vrienden</div></div>
+        `;
+        const b = document.createElement('button');
+        b.className = "p-2 rounded-lg hover:bg-slate-200 text-slate-500";
+        b.innerHTML = '<i data-lucide="copy" class="w-4 h-4"></i>';
+        b.addEventListener('click', () => copyToClipboard(code));
+        item.appendChild(b);
+        container.appendChild(item);
+      });
+      updateIcons();
+    }
+
+    function copyToClipboard(text) {
+      try { navigator.clipboard.writeText(text); showToast(`Code ${text} gekopieerd!`); }
+      catch(e) { showToast(`Code: ${text}`); }
+    }
+
+    async function inspectUser(username) {
+      const targetUser = await fetchProfileByUsername(username);
+      if (!targetUser || !targetUser.prediction) { showToast("Deze speler heeft nog geen voorspelling ingediend.", true); return; }
+
+      const p = targetUser.prediction;
+      document.getElementById('inspectUsername').textContent = targetUser.username;
+      document.getElementById('inspectContent').innerHTML = `
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="p-4 bg-slate-50 dark:bg-zinc-800/60 rounded-2xl space-y-2">
+            <span class="block text-xs font-bold uppercase text-slate-400">Congres & Zetels</span>
+            <div class="font-bold text-sm">Senaat: <span class="${p.senateMajority === 'DEM' ? 'text-dem' : 'text-rep'}">${p.senateMajority || '-'}</span> (Dem: ${p.senateDemSeats})</div>
+            <div class="font-bold text-sm">Huis: <span class="${p.houseMajority === 'DEM' ? 'text-dem' : 'text-rep'}">${p.houseMajority || '-'}</span> (Dem: ${p.houseDemSeats})</div>
+          </div>
+          <div class="p-4 bg-slate-50 dark:bg-zinc-800/60 rounded-2xl space-y-2">
+            <span class="block text-xs font-bold uppercase text-slate-400">9 Senaatsduels</span>
+            <div class="text-xs space-y-1 font-semibold">
+              ${SENATE_BATTLEGROUNDS.map(r => `<div>${r.state}: <span class="${p.senateRaces?.[r.id] === 'DEM' ? 'text-dem' : 'text-rep'} font-bold">${p.senateRaces?.[r.id] || '-'}</span></div>`).join('')}
+            </div>
+          </div>
+          <div class="p-4 bg-slate-50 dark:bg-zinc-800/60 rounded-2xl space-y-2">
+            <span class="block text-xs font-bold uppercase text-slate-400">Gouverneurs & Districten</span>
+            <div class="text-xs space-y-1 font-semibold">
+              <span class="text-[11px] text-slate-400 font-bold block">Gouverneurs:</span>
+              ${GOVERNOR_RACES.map(g => `<span class="mr-2">${g.stateId}: <b class="${p.govRaces?.[g.id] === 'DEM' ? 'text-dem' : 'text-rep'}">${p.govRaces?.[g.id] || '-'}</b></span>`).join('')}
+              <span class="text-[11px] text-slate-400 font-bold block pt-1">House:</span>
+              ${HOUSE_DISTRICTS.map(h => `<span class="mr-2">${h.id}: <b class="${p.houseDistricts?.[h.id] === 'DEM' ? 'text-dem' : 'text-rep'}">${p.houseDistricts?.[h.id] || '-'}</b></span>`).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+
+      switchTab('vrienden');
+      const inspectSec = document.getElementById('friendInspectSection');
+      if (inspectSec) {
+        inspectSec.classList.remove('hidden');
+        inspectSec.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+
+    function closeInspect() {
+      const inspectSec = document.getElementById('friendInspectSection');
+      if (inspectSec) inspectSec.classList.add('hidden');
+    }
+
+    // =========================================================================
+    // BEHEERDER (rechten staan in de database: tabel "admins")
+    // =========================================================================
+    async function promptAdminLogin() {
+      if (!currentUser) {
+        openAuthModal('login');
+        showToast("Log eerst in met je beheerdersaccount.", true);
+        return;
+      }
+      if (!sb) { showToast("Geen verbinding met de database.", true); return; }
+      try {
+        const { data, error } = await sb.from('admins').select('user_id').eq('user_id', currentUser.id).maybeSingle();
+        if (error) { console.error(error); showToast("Beheerrechten controleren mislukt (zie console, F12).", true); return; }
+        if (!data) { showToast("Dit account heeft geen beheerrechten.", true); return; }
+        openAdminModal();
+      } catch(e) {
+        console.error(e);
+        showToast("Beheerrechten controleren mislukt.", true);
+      }
+    }
+
+    function openAdminModal() {
+      const sContainer = document.getElementById('adminSenateGrid');
+      const gContainer = document.getElementById('adminGovGrid');
+      const hContainer = document.getElementById('adminHouseDistGrid');
+      if (sContainer) sContainer.innerHTML = '';
+      if (gContainer) gContainer.innerHTML = '';
+      if (hContainer) hContainer.innerHTML = '';
+
+      const currentOfficial = officialResults || { senateMajority: 'REP', houseMajority: 'REP', houseDemSeats: 218, senateDemSeats: 49, senateRaces: {}, govRaces: {}, houseDistricts: {} };
+
+      document.getElementById('adminSenateMaj').value = currentOfficial.senateMajority || 'REP';
+      document.getElementById('adminHouseMaj').value = currentOfficial.houseMajority || 'REP';
+      document.getElementById('adminHouseDem').value = currentOfficial.houseDemSeats ?? 218;
+      document.getElementById('adminSenateDem').value = currentOfficial.senateDemSeats ?? 49;
+
+      const optionHtml = (val) => `
+        <option value="DEM" ${val === 'DEM' ? 'selected' : ''}>DEM</option>
+        <option value="REP" ${val === 'REP' ? 'selected' : ''}>REP</option>`;
+
+      SENATE_BATTLEGROUNDS.forEach(r => {
+        const val = currentOfficial.senateRaces?.[r.id] || 'REP';
+        sContainer.insertAdjacentHTML('beforeend', `
+          <div class="p-2 bg-slate-50 dark:bg-zinc-800 rounded-xl border">
+            <label class="block font-bold mb-1">${r.state}</label>
+            <select id="admin-senate-${r.id}" class="w-full p-1.5 bg-white dark:bg-zinc-900 border rounded-lg text-xs font-bold">${optionHtml(val)}</select>
+          </div>`);
+      });
+
+      GOVERNOR_RACES.forEach(g => {
+        const val = currentOfficial.govRaces?.[g.id] || 'REP';
+        gContainer.insertAdjacentHTML('beforeend', `
+          <div class="p-2 bg-slate-50 dark:bg-zinc-800 rounded-xl border">
+            <label class="block font-bold mb-1">${g.state}</label>
+            <select id="admin-gov-${g.id}" class="w-full p-1.5 bg-white dark:bg-zinc-900 border rounded-lg text-xs font-bold">${optionHtml(val)}</select>
+          </div>`);
+      });
+
+      HOUSE_DISTRICTS.forEach(h => {
+        const val = currentOfficial.houseDistricts?.[h.id] || 'REP';
+        hContainer.insertAdjacentHTML('beforeend', `
+          <div class="p-2 bg-slate-50 dark:bg-zinc-800 rounded-xl border">
+            <label class="block font-bold mb-1">${h.district}</label>
+            <select id="admin-dist-${h.id}" class="w-full p-1.5 bg-white dark:bg-zinc-900 border rounded-lg text-xs font-bold">${optionHtml(val)}</select>
+          </div>`);
+      });
+
+      const modal = document.getElementById('adminModal');
+      if (modal) { modal.classList.remove('hidden'); modal.classList.add('flex'); }
+    }
+
+    function closeAdminModal() {
+      const modal = document.getElementById('adminModal');
+      if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+    }
+
+    async function publishOfficialResults() {
+      const senateRacesRes = {};
+      SENATE_BATTLEGROUNDS.forEach(r => {
+        const el = document.getElementById(`admin-senate-${r.id}`);
+        if (el) senateRacesRes[r.id] = el.value;
+      });
+      const govRacesRes = {};
+      GOVERNOR_RACES.forEach(g => {
+        const el = document.getElementById(`admin-gov-${g.id}`);
+        if (el) govRacesRes[g.id] = el.value;
+      });
+      const houseDistrictsRes = {};
+      HOUSE_DISTRICTS.forEach(h => {
+        const el = document.getElementById(`admin-dist-${h.id}`);
+        if (el) houseDistrictsRes[h.id] = el.value;
+      });
+
+      const newResults = {
+        senateMajority: document.getElementById('adminSenateMaj').value,
+        houseMajority: document.getElementById('adminHouseMaj').value,
+        houseDemSeats: parseInt(document.getElementById('adminHouseDem').value),
+        senateDemSeats: parseInt(document.getElementById('adminSenateDem').value),
+        senateRaces: senateRacesRes,
+        govRaces: govRacesRes,
+        houseDistricts: houseDistrictsRes
+      };
+
+      if (!sb) { showToast("Geen verbinding met de database.", true); return; }
+      try {
+        const { data, error } = await sb.from('zetel_results').upsert({ id: 'us_midterms_2026', data: newResults }).select('id');
+        if (error || !data || data.length === 0) {
+          console.error('Uitslag opslaan mislukt:', error);
+          showToast("⚠️ Uitslag opslaan mislukt: geen beheerrechten of sessie verlopen (zie console, F12)", true);
+          return;
+        }
+      } catch(e) {
+        console.error(e);
+        showToast("⚠️ Uitslag opslaan mislukt (zie console, F12)", true);
+        return;
+      }
+
+      officialResults = newResults;
+      safeStorage.setItem('zp_official_results', JSON.stringify(newResults));
+      showToast("🏆 Officiële uitslag gepubliceerd!");
+      closeAdminModal();
+      renderLeaderboard();
+    }
+
+    // =========================================================================
+    // INITIALISATIE (werkt ook als DOMContentLoaded al is afgevuurd)
+    // =========================================================================
+    async function initApp() {
+      try { initTheme(); } catch(e) { console.error(e); }
+      try { initBattlegroundGrids(); } catch(e) { console.error('Grids fout:', e); }
+      try { setupInteractiveMap(); } catch(e) { console.error('Kaart fout:', e); }
+      try { updatePredictionUI(); } catch(e) { console.error('UI fout:', e); }
+
+      try {
+        const form = document.getElementById('authModalForm');
+        if (form) form.addEventListener('submit', handleAuthSubmit);
+        const lo = document.getElementById('logoutBtn');
+        if (lo) lo.addEventListener('click', handleLogout);
+        const tg = document.getElementById('authToggleBtn');
+        if (tg) tg.addEventListener('click', () => setAuthMode(authMode === 'login' ? 'register' : 'login'));
+      } catch(e) { console.error(e); }
+
+      updateIcons();
+
+      try {
+        if (sb) {
+          const { data } = await sb.auth.getSession();
+          if (data && data.session) {
+            const profile = await fetchProfileById(data.session.user.id);
+            if (profile) loginSuccess(profile);
+          }
+        }
+      } catch(e) { console.error('Sessie herstellen mislukt:', e); }
+
+      if (!currentUser) renderLeaderboard();
+      updateIcons();
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initApp);
+    } else {
+      initApp();
+    }
+</script>
+</body>
+</html>
