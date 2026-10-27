@@ -57,6 +57,9 @@
       transform: translate(-50%, -120%);
     }
     #toastNotification { transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease; }
+    .zp-locked :is(#senateRacesGrid, #govRacesGrid, #houseDistrictsGrid) button,
+    .zp-locked :is(#senate-dem, #senate-rep, #house-dem, #house-rep) { opacity: .65; cursor: not-allowed; }
+    .zp-locked input[type=range] { opacity: .6; cursor: not-allowed; }
     /* Vangnet: modals/tabs blijven verborgen, ook als Tailwind niet laadt */
     .hidden { display: none !important; }
   </style>
@@ -130,6 +133,7 @@
 
     <!-- TAB 1: PRONOSTIEK -->
     <section id="content-pronostiek" class="space-y-8">
+      <div id="lockBanner" class="hidden px-5 py-3.5 rounded-2xl text-sm font-bold border"></div>
       <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white p-6 sm:p-8 rounded-3xl shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div class="space-y-2 max-w-2xl">
           <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-amber-300 text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
@@ -141,7 +145,7 @@
           </p>
         </div>
         <div>
-          <button onclick="savePrediction()" class="px-6 py-3.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold rounded-2xl text-sm transition shadow-lg shadow-amber-400/20 flex items-center justify-center gap-2">
+          <button id="savePredictionBtn" onclick="savePrediction()" class="px-6 py-3.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold rounded-2xl text-sm transition shadow-lg shadow-amber-400/20 flex items-center justify-center gap-2">
             <i data-lucide="check-circle" class="w-4 h-4"></i> Pronostiek Opslaan
           </button>
         </div>
@@ -261,7 +265,7 @@
                 <div id="senateDemBar" style="width: 49%;" class="bg-dem transition-all duration-150"></div>
                 <div id="senateRepBar" style="width: 51%;" class="bg-rep transition-all duration-150"></div>
               </div>
-              <input type="range" id="senateSlider" min="40" max="60" value="49" oninput="updateSenateSlider(this.value)" class="w-full bg-slate-200 dark:bg-zinc-700 h-1.5 rounded-lg appearance-none cursor-pointer">
+              <input type="range" id="senateSlider" min="40" max="60" value="49" oninput="onSliderInput('senate', this)" class="w-full bg-slate-200 dark:bg-zinc-700 h-1.5 rounded-lg appearance-none cursor-pointer">
             </div>
           </div>
 
@@ -292,7 +296,7 @@
                 <div id="houseDemBar" style="width: 50.1%;" class="bg-dem transition-all duration-150"></div>
                 <div id="houseRepBar" style="width: 49.9%;" class="bg-rep transition-all duration-150"></div>
               </div>
-              <input type="range" id="houseSlider" min="150" max="285" value="218" oninput="updateHouseSlider(this.value)" class="w-full bg-slate-200 dark:bg-zinc-700 h-1.5 rounded-lg appearance-none cursor-pointer">
+              <input type="range" id="houseSlider" min="150" max="285" value="218" oninput="onSliderInput('house', this)" class="w-full bg-slate-200 dark:bg-zinc-700 h-1.5 rounded-lg appearance-none cursor-pointer">
             </div>
           </div>
         </div>
@@ -369,6 +373,28 @@
             </thead>
             <tbody id="leaderboardBody" class="divide-y divide-slate-100 dark:divide-zinc-800/80 font-medium"></tbody>
           </table>
+        </div>
+      </div>
+    
+      <div class="space-y-3 pt-6">
+        <div>
+          <h3 class="text-xl font-bold tracking-tight">Totaalklassement</h3>
+          <p class="text-sm text-slate-500 dark:text-zinc-400">Vastgelegde punten van alle verkiezingen samen.</p>
+        </div>
+        <div class="bg-white dark:bg-zinc-900 rounded-3xl border border-slate-200/90 dark:border-zinc-800 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+              <thead class="bg-slate-50 dark:bg-zinc-800/60 text-slate-500 dark:text-zinc-400 text-xs uppercase font-bold tracking-wider border-b border-slate-200 dark:border-zinc-800">
+                <tr>
+                  <th class="py-3.5 px-4 w-12 text-center">#</th>
+                  <th class="py-3.5 px-4">Deelnemer</th>
+                  <th class="py-3.5 px-4">Per verkiezing</th>
+                  <th class="py-3.5 px-4 text-right">Totaal</th>
+                </tr>
+              </thead>
+              <tbody id="totalLeaderboardBody" class="divide-y divide-slate-100 dark:divide-zinc-800/80 font-medium"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </section>
@@ -470,6 +496,7 @@
         <div>
           <label class="block text-xs font-bold mb-1">Senaat Winnaar</label>
           <select id="adminSenateMaj" class="w-full p-2.5 text-xs font-bold bg-slate-50 dark:bg-zinc-800 border rounded-xl">
+            <option value="">Nog open</option>
             <option value="REP">Republikeinen (REP)</option>
             <option value="DEM">Democraten (DEM)</option>
           </select>
@@ -477,6 +504,7 @@
         <div>
           <label class="block text-xs font-bold mb-1">Huis Winnaar</label>
           <select id="adminHouseMaj" class="w-full p-2.5 text-xs font-bold bg-slate-50 dark:bg-zinc-800 border rounded-xl">
+            <option value="">Nog open</option>
             <option value="REP">Republikeinen (REP)</option>
             <option value="DEM">Democraten (DEM)</option>
           </select>
@@ -486,11 +514,11 @@
       <div class="grid grid-cols-2 gap-4">
         <div>
           <label class="block text-xs font-bold mb-1">Democratische Zetels Senaat (op 100)</label>
-          <input type="number" id="adminSenateDem" value="49" min="0" max="100" class="w-full p-2.5 text-xs font-bold bg-slate-50 dark:bg-zinc-800 border rounded-xl" />
+          <input type="number" id="adminSenateDem" value="" placeholder="leeg = nog niet bekend" min="0" max="100" class="w-full p-2.5 text-xs font-bold bg-slate-50 dark:bg-zinc-800 border rounded-xl" />
         </div>
         <div>
           <label class="block text-xs font-bold mb-1">Democratische Zetels Huis (op 435)</label>
-          <input type="number" id="adminHouseDem" value="218" min="0" max="435" class="w-full p-2.5 text-xs font-bold bg-slate-50 dark:bg-zinc-800 border rounded-xl" />
+          <input type="number" id="adminHouseDem" value="" placeholder="leeg = nog niet bekend" min="0" max="435" class="w-full p-2.5 text-xs font-bold bg-slate-50 dark:bg-zinc-800 border rounded-xl" />
         </div>
       </div>
 
@@ -507,7 +535,37 @@
         <div id="adminHouseDistGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs"></div>
       </div>
 
+      <div class="p-4 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-800/40 space-y-3">
+        <div>
+          <span class="block text-xs font-bold uppercase tracking-wider text-slate-400">Voorspellingen vergrendelen</span>
+          <p class="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">Vergrendeld = spelers kunnen hun pronostiek niet meer indienen of wijzigen (ook niet via een omweg: de database weigert het). Vergrendel handmatig en/of stel een automatische deadline in. Liga's joinen blijft werken.</p>
+        </div>
+        <div class="flex flex-wrap items-end gap-2">
+          <button type="button" id="lockToggleBtn" onclick="toggleLock()" class="px-4 py-2 text-xs font-bold rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition">Nu vergrendelen</button>
+          <div>
+            <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Automatische deadline</label>
+            <input type="datetime-local" id="lockAtInput" class="px-2.5 py-2 text-xs font-bold bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl" />
+          </div>
+          <button type="button" onclick="saveDeadline()" class="px-4 py-2 text-xs font-bold rounded-xl border hover:bg-slate-100 dark:hover:bg-zinc-800 transition">Deadline opslaan</button>
+          <button type="button" onclick="clearDeadline()" class="px-4 py-2 text-xs font-bold rounded-xl border hover:bg-slate-100 dark:hover:bg-zinc-800 transition">Deadline wissen</button>
+        </div>
+        <div id="lockStatus" class="text-[11px] text-slate-500 dark:text-zinc-400"></div>
+      </div>
+
+      <div class="p-4 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-800/40 space-y-3">
+        <div>
+          <span class="block text-xs font-bold uppercase tracking-wider text-slate-400">Totaalklassement</span>
+          <p class="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">Sla eerst de uitslag op. Leg daarna hier de punten van deze verkiezing vast: ze komen in het totaalklassement en blijven staan, ook als je de uitslag later wist. Opnieuw vastleggen overschrijft de vorige keer.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" id="freezeScoresBtn" onclick="freezeScores()" class="px-4 py-2 text-xs font-bold rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition">Punten vastleggen</button>
+          <button type="button" id="clearScoresBtn" onclick="clearFrozenScores()" class="px-4 py-2 text-xs font-bold rounded-xl border border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition">Vastgelegde punten wissen</button>
+        </div>
+        <div id="frozenStatus" class="text-[11px] text-slate-500 dark:text-zinc-400"></div>
+      </div>
+
       <div class="pt-4 border-t border-slate-100 dark:border-zinc-800 flex justify-end gap-3">
+        <button type="button" id="resetResultsBtn" onclick="resetOfficialResults()" class="mr-auto px-4 py-2 text-xs font-bold rounded-xl border border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition">Uitslag wissen (reset)</button>
         <button onclick="closeAdminModal()" class="px-4 py-2 text-xs font-bold rounded-xl border">Annuleren</button>
         <button onclick="publishOfficialResults()" class="px-5 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-md">Uitslag Opslaan</button>
       </div>
@@ -534,6 +592,9 @@
     // Spelers loggen in met gebruikersnaam; intern wordt dat <gebruikersnaam>@<dit domein>.
     // Supabase eist een domein MET MX-records. Er wordt nooit een mail verstuurd zolang "Confirm email" uit staat.
     const USERNAME_DOMAIN = "gmail.com";
+    // Verkiezing waar deze pagina over gaat. Bij een volgende verkiezing krijgt die een eigen id.
+    const ELECTION_ID = 'us_midterms_2026';
+    const ELECTION_LABELS = { 'us_midterms_2026': 'US Midterms 2026' };
     // =========================================================================
 
     // Vangnet voor omgevingen waar localStorage geblokkeerd is (bv. Google Sites sandbox)
@@ -602,7 +663,7 @@
     ];
 
     let currentUser = null;   // { id, username, leagues, prediction, updated_at }
-    let officialResults = safeParse(safeStorage.getItem('zp_official_results'), null);
+    let officialResults = null; // komt altijd uit de database (geen lokale cache, zodat een reset overal doorwerkt)
     let authMode = 'login';   // 'login' | 'register'
 
     let currentPrediction = {
@@ -714,21 +775,25 @@
       } catch(e) { console.error(e); return null; }
     }
 
+    // undefined = laden mislukt, null = (nog) geen uitslag, object = uitslag
     async function fetchOfficialResults() {
-      if (!sb) return null;
+      if (!sb) return undefined;
       try {
-        const { data, error } = await sb.from('zetel_results').select('data').eq('id', 'us_midterms_2026').maybeSingle();
-        if (error) { console.error('Uitslag laden mislukt:', error); return null; }
-        return data ? data.data : null;
-      } catch(e) { console.error(e); return null; }
+        const { data, error } = await sb.from('zetel_results').select('data').eq('id', ELECTION_ID).maybeSingle();
+        if (error) { console.error('Uitslag laden mislukt:', error); return undefined; }
+        const d = data ? data.data : null;
+        return d && typeof d === 'object' && Object.keys(d).length > 0 ? d : null;
+      } catch(e) { console.error(e); return undefined; }
     }
 
+    let lastDbError = null;
     // true ALLEEN als er echt een rij is aangepast
     async function updateOwnProfile(patch) {
+      lastDbError = null;
       if (!sb || !currentUser) return false;
       try {
         const { data, error } = await sb.from('zetel_users').update(patch).eq('id', currentUser.id).select('id');
-        if (error) { console.error('Opslaan mislukt:', error); return false; }
+        if (error) { console.error('Opslaan mislukt:', error); lastDbError = error; return false; }
         if (!data || data.length === 0) {
           console.error('Opslaan: 0 rijen aangepast (RLS-policy ontbreekt of sessie verlopen).');
           return false;
@@ -838,12 +903,14 @@
     }
 
     function selectMajority(chamber, party) {
+      if (isLocked()) { showToast(LOCK_MSG, true); return; }
       if (chamber === 'senate') currentPrediction.senateMajority = party;
       if (chamber === 'house') currentPrediction.houseMajority = party;
       updatePredictionUI();
     }
 
     function selectRace(category, raceId, party) {
+      if (isLocked()) { showToast(LOCK_MSG, true); return; }
       if (category === 'senate') {
         currentPrediction.senateRaces[raceId] = party;
       } else if (category === 'gov') {
@@ -977,6 +1044,10 @@
     // =========================================================================
     async function savePrediction() {
       if (!currentUser) { openAuthModal('login'); return; }
+      const freshLock = await fetchLockState();
+      if (freshLock) lockState = freshLock;
+      applyLockUI();
+      if (isLocked()) { showToast(LOCK_MSG, true); return; }
       if (!currentPrediction.senateMajority || !currentPrediction.houseMajority) {
         showToast("Selecteer eerst wie de meerderheid haalt in Senaat en Huis.", true);
         return;
@@ -991,6 +1062,10 @@
         currentUser.prediction = JSON.parse(JSON.stringify(currentPrediction));
         currentUser.updated_at = now;
         showToast("✅ Je pronostiek is succesvol opgeslagen!");
+      } else if (lastDbError && /vergrendeld/i.test(String(lastDbError.message))) {
+        lockState = { locked: true, lock_at: lockState.lock_at };
+        applyLockUI();
+        showToast(LOCK_MSG, true);
       } else {
         showToast("⚠️ Opslaan mislukt. Log opnieuw in en probeer het nog eens (zie console, F12)", true);
       }
@@ -1003,11 +1078,11 @@
       if (pred.senateMajority && pred.senateMajority === official.senateMajority) score += 30;
       if (pred.houseMajority && pred.houseMajority === official.houseMajority) score += 30;
 
-      if (typeof pred.houseDemSeats === 'number' && typeof official.houseDemSeats === 'number') {
+      if (Number.isFinite(pred.houseDemSeats) && Number.isFinite(official.houseDemSeats)) {
         const houseDiff = Math.abs(pred.houseDemSeats - official.houseDemSeats);
         score += Math.max(0, 50 - (houseDiff * 3));
       }
-      if (typeof pred.senateDemSeats === 'number' && typeof official.senateDemSeats === 'number') {
+      if (Number.isFinite(pred.senateDemSeats) && Number.isFinite(official.senateDemSeats)) {
         const senateDiff = Math.abs(pred.senateDemSeats - official.senateDemSeats);
         score += Math.max(0, 50 - (senateDiff * 5));
       }
@@ -1042,7 +1117,7 @@
       if (loadFailed) users = [];
 
       const off = await fetchOfficialResults();
-      if (off) officialResults = off;
+      if (off !== undefined) officialResults = off;
 
       const filterSelect = document.getElementById('leagueFilterSelect');
       if (filterSelect) {
@@ -1066,6 +1141,8 @@
 
       users.forEach(u => { u.score = calculateUserScore(u.prediction, officialResults); });
       users.sort((a, b) => (b.score || 0) - (a.score || 0));
+
+      renderTotalLeaderboard(users).catch(e => console.error(e));
 
       tbody.innerHTML = '';
 
@@ -1245,7 +1322,7 @@
             id: data.user.id,
             username,
             leagues: [],
-            prediction: currentPrediction.senateMajority ? currentPrediction : null,
+            prediction: (!isLocked() && currentPrediction.senateMajority) ? currentPrediction : null,
             score: 0,
             updated_at: new Date().toISOString()
           };
@@ -1427,19 +1504,20 @@
       if (gContainer) gContainer.innerHTML = '';
       if (hContainer) hContainer.innerHTML = '';
 
-      const currentOfficial = officialResults || { senateMajority: 'REP', houseMajority: 'REP', houseDemSeats: 218, senateDemSeats: 49, senateRaces: {}, govRaces: {}, houseDistricts: {} };
+      const currentOfficial = officialResults || { senateMajority: '', houseMajority: '', houseDemSeats: null, senateDemSeats: null, senateRaces: {}, govRaces: {}, houseDistricts: {} };
 
-      document.getElementById('adminSenateMaj').value = currentOfficial.senateMajority || 'REP';
-      document.getElementById('adminHouseMaj').value = currentOfficial.houseMajority || 'REP';
-      document.getElementById('adminHouseDem').value = currentOfficial.houseDemSeats ?? 218;
-      document.getElementById('adminSenateDem').value = currentOfficial.senateDemSeats ?? 49;
+      document.getElementById('adminSenateMaj').value = currentOfficial.senateMajority || '';
+      document.getElementById('adminHouseMaj').value = currentOfficial.houseMajority || '';
+      document.getElementById('adminHouseDem').value = currentOfficial.houseDemSeats ?? '';
+      document.getElementById('adminSenateDem').value = currentOfficial.senateDemSeats ?? '';
 
       const optionHtml = (val) => `
+        <option value="" ${!val ? 'selected' : ''}>Nog open</option>
         <option value="DEM" ${val === 'DEM' ? 'selected' : ''}>DEM</option>
         <option value="REP" ${val === 'REP' ? 'selected' : ''}>REP</option>`;
 
       SENATE_BATTLEGROUNDS.forEach(r => {
-        const val = currentOfficial.senateRaces?.[r.id] || 'REP';
+        const val = currentOfficial.senateRaces?.[r.id] || '';
         sContainer.insertAdjacentHTML('beforeend', `
           <div class="p-2 bg-slate-50 dark:bg-zinc-800 rounded-xl border">
             <label class="block font-bold mb-1">${r.state}</label>
@@ -1448,7 +1526,7 @@
       });
 
       GOVERNOR_RACES.forEach(g => {
-        const val = currentOfficial.govRaces?.[g.id] || 'REP';
+        const val = currentOfficial.govRaces?.[g.id] || '';
         gContainer.insertAdjacentHTML('beforeend', `
           <div class="p-2 bg-slate-50 dark:bg-zinc-800 rounded-xl border">
             <label class="block font-bold mb-1">${g.state}</label>
@@ -1457,7 +1535,7 @@
       });
 
       HOUSE_DISTRICTS.forEach(h => {
-        const val = currentOfficial.houseDistricts?.[h.id] || 'REP';
+        const val = currentOfficial.houseDistricts?.[h.id] || '';
         hContainer.insertAdjacentHTML('beforeend', `
           <div class="p-2 bg-slate-50 dark:bg-zinc-800 rounded-xl border">
             <label class="block font-bold mb-1">${h.district}</label>
@@ -1467,6 +1545,8 @@
 
       const modal = document.getElementById('adminModal');
       if (modal) { modal.classList.remove('hidden'); modal.classList.add('flex'); }
+      refreshFrozenStatus();
+      refreshLockStatus();
     }
 
     function closeAdminModal() {
@@ -1475,35 +1555,42 @@
     }
 
     async function publishOfficialResults() {
-      const senateRacesRes = {};
-      SENATE_BATTLEGROUNDS.forEach(r => {
-        const el = document.getElementById(`admin-senate-${r.id}`);
-        if (el) senateRacesRes[r.id] = el.value;
-      });
-      const govRacesRes = {};
-      GOVERNOR_RACES.forEach(g => {
-        const el = document.getElementById(`admin-gov-${g.id}`);
-        if (el) govRacesRes[g.id] = el.value;
-      });
-      const houseDistrictsRes = {};
-      HOUSE_DISTRICTS.forEach(h => {
-        const el = document.getElementById(`admin-dist-${h.id}`);
-        if (el) houseDistrictsRes[h.id] = el.value;
-      });
+      // Lege keuze = "nog open": die race telt nog niet mee voor punten
+      const raceValues = (list, prefix, key) => {
+        const out = {};
+        list.forEach(x => {
+          const el = document.getElementById(`${prefix}-${x[key]}`);
+          if (el && el.value) out[x[key]] = el.value;
+        });
+        return out;
+      };
+      const readSeats = (id, max) => {
+        const raw = document.getElementById(id).value.trim();
+        if (raw === '') return null;
+        const n = Number(raw);
+        return Number.isInteger(n) && n >= 0 && n <= max ? n : NaN;
+      };
+
+      const senateSeats = readSeats('adminSenateDem', 100);
+      const houseSeats = readSeats('adminHouseDem', 435);
+      if (Number.isNaN(senateSeats) || Number.isNaN(houseSeats)) {
+        showToast("⚠️ Zetels moeten een heel getal zijn (Senaat 0-100, Huis 0-435), of leeg.", true);
+        return;
+      }
 
       const newResults = {
-        senateMajority: document.getElementById('adminSenateMaj').value,
-        houseMajority: document.getElementById('adminHouseMaj').value,
-        houseDemSeats: parseInt(document.getElementById('adminHouseDem').value),
-        senateDemSeats: parseInt(document.getElementById('adminSenateDem').value),
-        senateRaces: senateRacesRes,
-        govRaces: govRacesRes,
-        houseDistricts: houseDistrictsRes
+        senateMajority: document.getElementById('adminSenateMaj').value || null,
+        houseMajority: document.getElementById('adminHouseMaj').value || null,
+        houseDemSeats: houseSeats,
+        senateDemSeats: senateSeats,
+        senateRaces: raceValues(SENATE_BATTLEGROUNDS, 'admin-senate', 'id'),
+        govRaces: raceValues(GOVERNOR_RACES, 'admin-gov', 'id'),
+        houseDistricts: raceValues(HOUSE_DISTRICTS, 'admin-dist', 'id')
       };
 
       if (!sb) { showToast("Geen verbinding met de database.", true); return; }
       try {
-        const { data, error } = await sb.from('zetel_results').upsert({ id: 'us_midterms_2026', data: newResults }).select('id');
+        const { data, error } = await sb.from('zetel_results').upsert({ id: ELECTION_ID, data: newResults }).select('id');
         if (error || !data || data.length === 0) {
           console.error('Uitslag opslaan mislukt:', error);
           showToast("⚠️ Uitslag opslaan mislukt: geen beheerrechten of sessie verlopen (zie console, F12)", true);
@@ -1516,10 +1603,339 @@
       }
 
       officialResults = newResults;
-      safeStorage.setItem('zp_official_results', JSON.stringify(newResults));
-      showToast("🏆 Officiële uitslag gepubliceerd!");
+      showToast("🏆 Officiële uitslag gepubliceerd! Punten zijn voor iedereen herberekend.");
       closeAdminModal();
       renderLeaderboard();
+    }
+
+    // Reset: wist de officiële uitslag. Alle punten staan dan weer op 0. Voorspellingen blijven staan.
+    let resetArmTimer = null;
+    async function resetOfficialResults() {
+      const btn = document.getElementById('resetResultsBtn');
+      if (!btn) return;
+      const label = 'Uitslag wissen (reset)';
+      if (!btn.dataset.armed) {
+        btn.dataset.armed = '1';
+        btn.textContent = 'Zeker? Klik nogmaals om te wissen';
+        resetArmTimer = setTimeout(() => { delete btn.dataset.armed; btn.textContent = label; }, 4000);
+        return;
+      }
+      clearTimeout(resetArmTimer);
+      delete btn.dataset.armed;
+      btn.textContent = label;
+
+      if (!sb) { showToast("Geen verbinding met de database.", true); return; }
+      try {
+        // {} i.p.v. verwijderen: gebruikt dezelfde rechten als opslaan, dus geen extra SQL nodig
+        const { data, error } = await sb.from('zetel_results').upsert({ id: ELECTION_ID, data: {} }).select('id');
+        if (error || !data || data.length === 0) {
+          console.error('Uitslag wissen mislukt:', error);
+          showToast("⚠️ Wissen mislukt: geen beheerrechten of sessie verlopen (zie console, F12)", true);
+          return;
+        }
+      } catch(e) {
+        console.error(e);
+        showToast("⚠️ Wissen mislukt (zie console, F12)", true);
+        return;
+      }
+      officialResults = null;
+      safeStorage.removeItem('zp_official_results');
+      showToast("🧹 Uitslag gewist: alle punten staan weer op 0.");
+      closeAdminModal();
+      renderLeaderboard();
+    }
+
+    // =========================================================================
+    // TOTAALKLASSEMENT (vastgelegde punten per verkiezing, tabel zetel_scores)
+    // =========================================================================
+    const hitCount = (list, pm, om) => list.filter(x => pm && om && pm[x.id] && pm[x.id] === om[x.id]).length;
+
+    // Zuivere rekenfunctie: rijen voor zetel_scores, voor iedere speler
+    function buildScoreRows(users, official, electionId, nowIso) {
+      return users.map(u => {
+        const p = u.prediction;
+        return {
+          election_id: electionId,
+          user_id: u.id,
+          points: calculateUserScore(p, official),
+          breakdown: p ? {
+            senateMajority: !!(p.senateMajority && p.senateMajority === official.senateMajority),
+            houseMajority: !!(p.houseMajority && p.houseMajority === official.houseMajority),
+            senateRaces: hitCount(SENATE_BATTLEGROUNDS, p.senateRaces, official.senateRaces),
+            govRaces: hitCount(GOVERNOR_RACES, p.govRaces, official.govRaces),
+            houseDistricts: hitCount(HOUSE_DISTRICTS, p.houseDistricts, official.houseDistricts)
+          } : null,
+          updated_at: nowIso
+        };
+      });
+    }
+
+    // Zuivere rekenfunctie: totalen per speler, hoogste eerst
+    function aggregateTotals(scoreRows, users) {
+      const byUser = {};
+      (scoreRows || []).forEach(r => {
+        const e = byUser[r.user_id] || (byUser[r.user_id] = { total: 0, per: {} });
+        e.total += Number(r.points) || 0;
+        e.per[r.election_id] = Number(r.points) || 0;
+      });
+      return users.filter(u => byUser[u.id])
+        .map(u => ({ user: u, total: byUser[u.id].total, per: byUser[u.id].per }))
+        .sort((a, b) => b.total - a.total);
+    }
+
+    async function renderTotalLeaderboard(users) {
+      const tbody = document.getElementById('totalLeaderboardBody');
+      if (!tbody || !sb) return;
+      const { data, error } = await sb.from('zetel_scores').select('election_id,user_id,points');
+      if (error) {
+        console.error('Totaalklassement laden mislukt:', error);
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-xs text-slate-400">Totaalklassement is nog niet beschikbaar (zie console, F12).</td></tr>';
+        return;
+      }
+      const rows = aggregateTotals(data, users);
+      tbody.innerHTML = '';
+      if (rows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-xs text-slate-400">Nog geen punten vastgelegd.</td></tr>';
+        return;
+      }
+      rows.forEach((r, idx) => {
+        const isMe = currentUser && r.user.id === currentUser.id;
+        const chips = Object.entries(r.per).map(([id, pts]) =>
+          `<span class="inline-block mr-1.5 mb-1 px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-zinc-800 text-[11px] font-semibold">${esc(ELECTION_LABELS[id] || id)}: ${pts}</span>`).join('');
+        const tr = document.createElement('tr');
+        tr.className = isMe ? "bg-amber-50/60 dark:bg-amber-950/20 font-bold" : "hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition";
+        tr.innerHTML = `
+          <td class="py-3.5 px-4 text-center font-bold text-xs text-slate-400">${idx + 1}</td>
+          <td class="py-3.5 px-4 font-bold">${esc(r.user.username)}${isMe ? ' <span class="text-[10px] bg-amber-200 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 px-1.5 py-0.5 rounded font-extrabold">Jij</span>' : ''}</td>
+          <td class="py-3.5 px-4">${chips}</td>
+          <td class="py-3.5 px-4 text-right font-black text-sm">${r.total} pt</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Twee-kliks bevestiging (confirm() werkt niet overal)
+    const armTimers = new WeakMap();
+    function armClick(btn, armedText, idleText) {
+      if (!btn) return false;
+      if (!btn.dataset.armed) {
+        btn.dataset.armed = '1';
+        btn.textContent = armedText;
+        armTimers.set(btn, setTimeout(() => { delete btn.dataset.armed; btn.textContent = idleText; }, 4000));
+        return false;
+      }
+      clearTimeout(armTimers.get(btn));
+      delete btn.dataset.armed;
+      btn.textContent = idleText;
+      return true;
+    }
+
+    function scoresTableMissing(error) {
+      const m = String((error && (error.code + ' ' + error.message)) || '').toLowerCase();
+      return m.includes('42p01') || m.includes('pgrst205') || m.includes('could not find the table') || m.includes('does not exist');
+    }
+
+    async function refreshFrozenStatus() {
+      const el = document.getElementById('frozenStatus');
+      if (!el || !sb) return;
+      const { data, error } = await sb.from('zetel_scores').select('user_id,updated_at').eq('election_id', ELECTION_ID);
+      if (error) {
+        console.error(error);
+        el.textContent = scoresTableMissing(error) ? 'Tabel zetel_scores ontbreekt: voer eerst de SQL uit.' : 'Status laden mislukt (zie console, F12).';
+        return;
+      }
+      if (!data || data.length === 0) { el.textContent = 'Voor deze verkiezing is nog niets vastgelegd.'; return; }
+      const last = data.map(r => r.updated_at).filter(Boolean).sort().pop();
+      el.textContent = `Vastgelegd voor ${data.length} spelers (laatst: ${formatTime(last).replace(/<[^>]*>/g, '')}).`;
+    }
+
+    async function freezeScores() {
+      const btn = document.getElementById('freezeScoresBtn');
+      if (!armClick(btn, 'Zeker? Klik nogmaals om vast te leggen', 'Punten vastleggen')) return;
+      if (!sb) { showToast("Geen verbinding met de database.", true); return; }
+
+      const off = await fetchOfficialResults();
+      if (off === undefined) { showToast("⚠️ Uitslag laden mislukt (zie console, F12)", true); return; }
+      if (off === null) { showToast("Sla eerst een uitslag op voordat je punten vastlegt.", true); return; }
+      officialResults = off;
+
+      const users = await fetchAllUsers();
+      if (users === null) { showToast("⚠️ Spelers laden mislukt (zie console, F12)", true); return; }
+      if (users.length === 0) { showToast("Er zijn nog geen spelers.", true); return; }
+
+      const rows = buildScoreRows(users, off, ELECTION_ID, new Date().toISOString());
+      try {
+        const { data, error } = await sb.from('zetel_scores').upsert(rows, { onConflict: 'election_id,user_id' }).select('user_id');
+        if (error || !data || data.length !== rows.length) {
+          console.error('Punten vastleggen mislukt:', error, data);
+          showToast(scoresTableMissing(error) ? "⚠️ Tabel zetel_scores ontbreekt: voer eerst de SQL uit." : "⚠️ Vastleggen mislukt: geen beheerrechten of sessie verlopen (zie console, F12)", true);
+          return;
+        }
+      } catch(e) {
+        console.error(e);
+        showToast("⚠️ Vastleggen mislukt (zie console, F12)", true);
+        return;
+      }
+      showToast(`📌 Punten van ${rows.length} spelers vastgelegd.`);
+      refreshFrozenStatus();
+      renderLeaderboard();
+    }
+
+    async function clearFrozenScores() {
+      const btn = document.getElementById('clearScoresBtn');
+      if (!armClick(btn, 'Zeker? Klik nogmaals om te wissen', 'Vastgelegde punten wissen')) return;
+      if (!sb) { showToast("Geen verbinding met de database.", true); return; }
+      try {
+        const before = await sb.from('zetel_scores').select('user_id').eq('election_id', ELECTION_ID);
+        if (before.error) { console.error(before.error); showToast("⚠️ Wissen mislukt (zie console, F12)", true); return; }
+        const n = (before.data || []).length;
+        if (n === 0) { showToast("Er stond niets vastgelegd."); return; }
+        const { data, error } = await sb.from('zetel_scores').delete().eq('election_id', ELECTION_ID).select('user_id');
+        if (error || !data || data.length === 0) {
+          console.error('Wissen mislukt:', error);
+          showToast("⚠️ Wissen mislukt: geen beheerrechten of sessie verlopen (zie console, F12)", true);
+          return;
+        }
+      } catch(e) {
+        console.error(e);
+        showToast("⚠️ Wissen mislukt (zie console, F12)", true);
+        return;
+      }
+      showToast("🧹 Vastgelegde punten voor deze verkiezing gewist.");
+      refreshFrozenStatus();
+      renderLeaderboard();
+    }
+
+    // =========================================================================
+    // VERGRENDELEN VAN VOORSPELLINGEN (tabel zetel_settings + trigger in de database)
+    // =========================================================================
+    const LOCK_MSG = "🔒 Voorspellingen zijn vergrendeld: je kunt niets meer wijzigen.";
+    let lockState = { locked: false, lock_at: null };
+
+    // Zuivere functie: is het nu vergrendeld?
+    function computeLocked(state, nowMs) {
+      if (!state) return false;
+      if (state.locked) return true;
+      if (state.lock_at) { const t = Date.parse(state.lock_at); if (!Number.isNaN(t) && nowMs >= t) return true; }
+      return false;
+    }
+    const isLocked = () => computeLocked(lockState, Date.now());
+
+    // undefined = laden mislukt (bv. tabel ontbreekt): dan blijven we bij de laatst bekende status
+    async function fetchLockState() {
+      if (!sb) return undefined;
+      try {
+        const { data, error } = await sb.from('zetel_settings').select('locked,lock_at').eq('election_id', ELECTION_ID).maybeSingle();
+        if (error) { console.warn('Slotstatus laden mislukt:', error.message); return undefined; }
+        return data ? { locked: !!data.locked, lock_at: data.lock_at || null } : { locked: false, lock_at: null };
+      } catch(e) { console.warn(e); return undefined; }
+    }
+
+    function formatLockTime(iso) {
+      try { return new Date(iso).toLocaleString('nl-BE', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); }
+      catch(e) { return iso; }
+    }
+
+    function onSliderInput(kind, el) {
+      if (isLocked()) {
+        el.value = kind === 'senate' ? currentPrediction.senateDemSeats : currentPrediction.houseDemSeats;
+        showToast(LOCK_MSG, true);
+        return;
+      }
+      if (kind === 'senate') updateSenateSlider(el.value); else updateHouseSlider(el.value);
+    }
+
+    function applyLockUI() {
+      const locked = isLocked();
+      const sec = document.getElementById('content-pronostiek');
+      if (sec) sec.classList.toggle('zp-locked', locked);
+      document.querySelectorAll('#senateRacesGrid button, #govRacesGrid button, #houseDistrictsGrid button, #senate-dem, #senate-rep, #house-dem, #house-rep, #senateSlider, #houseSlider')
+        .forEach(el => { el.disabled = locked; });
+      const saveBtn = document.getElementById('savePredictionBtn');
+      if (saveBtn) { saveBtn.classList.toggle('opacity-50', locked); saveBtn.classList.toggle('cursor-not-allowed', locked); }
+
+      const banner = document.getElementById('lockBanner');
+      if (banner) {
+        if (locked) {
+          banner.textContent = "🔒 Voorspellingen zijn vergrendeld. Je kunt je keuzes niet meer aanpassen.";
+          banner.className = "px-5 py-3.5 rounded-2xl text-sm font-bold border bg-slate-900 text-white border-slate-700";
+        } else if (lockState.lock_at) {
+          banner.textContent = "⏳ Deadline: " + formatLockTime(lockState.lock_at) + ". Daarna worden voorspellingen vergrendeld.";
+          banner.className = "px-5 py-3.5 rounded-2xl text-sm font-bold border bg-amber-50 text-amber-900 border-amber-200 dark:bg-amber-950/30 dark:text-amber-200 dark:border-amber-900";
+        } else {
+          banner.className = "hidden";
+        }
+      }
+    }
+
+    function toLocalInputValue(iso) {
+      const d = new Date(iso); const p = (n) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+    }
+
+    async function refreshLockStatus() {
+      const ls = await fetchLockState();
+      const status = document.getElementById('lockStatus');
+      const btn = document.getElementById('lockToggleBtn');
+      const input = document.getElementById('lockAtInput');
+      if (ls === undefined) {
+        if (status) status.textContent = 'Tabel zetel_settings ontbreekt of is niet leesbaar: voer eerst de SQL uit.';
+        return;
+      }
+      lockState = ls;
+      if (btn) { delete btn.dataset.armed; btn.textContent = ls.locked ? 'Ontgrendelen' : 'Nu vergrendelen'; }
+      if (input) input.value = ls.lock_at ? toLocalInputValue(ls.lock_at) : '';
+      if (status) {
+        const parts = [ls.locked ? '🔒 Handmatig vergrendeld.' : '🔓 Niet handmatig vergrendeld.'];
+        if (ls.lock_at) parts.push('Deadline: ' + formatLockTime(ls.lock_at) + (computeLocked({ locked: false, lock_at: ls.lock_at }, Date.now()) ? ' (verstreken, dus vergrendeld).' : '.'));
+        else parts.push('Geen deadline ingesteld.');
+        status.textContent = parts.join(' ');
+      }
+      applyLockUI();
+    }
+
+    async function writeLockState(patch) {
+      if (!sb) { showToast("Geen verbinding met de database.", true); return false; }
+      try {
+        const { data, error } = await sb.from('zetel_settings')
+          .upsert({ election_id: ELECTION_ID, ...patch, updated_at: new Date().toISOString() }, { onConflict: 'election_id' })
+          .select('election_id');
+        if (error || !data || data.length === 0) {
+          console.error('Slotstatus opslaan mislukt:', error);
+          showToast(scoresTableMissing(error) ? "⚠️ Tabel zetel_settings ontbreekt: voer eerst de SQL uit." : "⚠️ Opslaan mislukt: geen beheerrechten of sessie verlopen (zie console, F12)", true);
+          return false;
+        }
+        return true;
+      } catch(e) { console.error(e); showToast("⚠️ Opslaan mislukt (zie console, F12)", true); return false; }
+    }
+
+    async function toggleLock() {
+      const btn = document.getElementById('lockToggleBtn');
+      if (lockState.locked) {
+        if (!(await writeLockState({ locked: false }))) return;
+        showToast("🔓 Voorspellingen zijn weer ontgrendeld.");
+      } else {
+        if (!armClick(btn, 'Zeker? Klik nogmaals om te vergrendelen', 'Nu vergrendelen')) return;
+        if (!(await writeLockState({ locked: true }))) return;
+        showToast("🔒 Voorspellingen zijn vergrendeld.");
+      }
+      refreshLockStatus();
+    }
+
+    async function saveDeadline() {
+      const v = document.getElementById('lockAtInput').value;
+      if (!v) { showToast("Kies eerst een datum en uur.", true); return; }
+      const d = new Date(v);
+      if (Number.isNaN(d.getTime())) { showToast("Ongeldige datum.", true); return; }
+      if (d.getTime() <= Date.now()) { showToast("Die deadline ligt in het verleden: dan zou het meteen vergrendeld zijn. Gebruik daarvoor 'Nu vergrendelen'.", true); return; }
+      if (!(await writeLockState({ lock_at: d.toISOString() }))) return;
+      showToast("⏳ Deadline opgeslagen: " + formatLockTime(d.toISOString()));
+      refreshLockStatus();
+    }
+
+    async function clearDeadline() {
+      if (!(await writeLockState({ lock_at: null }))) return;
+      showToast("Deadline gewist.");
+      refreshLockStatus();
     }
 
     // =========================================================================
@@ -1541,6 +1957,17 @@
       } catch(e) { console.error(e); }
 
       updateIcons();
+
+      try {
+        const ls = await fetchLockState();
+        if (ls) lockState = ls;
+      } catch(e) { console.error(e); }
+      applyLockUI();
+      // houdt de pagina bij: handmatige vergrendeling of verstreken deadline werkt zonder herladen
+      setInterval(async () => {
+        try { const ls = await fetchLockState(); if (ls) lockState = ls; } catch(e) {}
+        applyLockUI();
+      }, 30000);
 
       try {
         if (sb) {
