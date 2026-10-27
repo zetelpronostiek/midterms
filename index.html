@@ -1278,7 +1278,7 @@
           updated_at: user.prediction.updated_at || null
         };
         const ntc = document.getElementById('predictionNotice');
-        if (ntc) ntc.textContent = "Jouw voorspelling is actief geladen. Je kunt keuzes aanpassen en opnieuw opslaan.";
+        if (ntc) ntc.textContent = "Je pronostiek is geladen. Je kunt keuzes aanpassen en opnieuw opslaan.";
         updatePredictionUI();
       }
 
@@ -1481,18 +1481,18 @@
     async function promptAdminLogin() {
       if (!currentUser) {
         openAuthModal('login');
-        showToast("Log eerst in met je beheerdersaccount.", true);
+        showToast("Ben jij Brent?", true);
         return;
       }
       if (!sb) { showToast("Geen verbinding met de database.", true); return; }
       try {
         const { data, error } = await sb.from('admins').select('user_id').eq('user_id', currentUser.id).maybeSingle();
         if (error) { console.error(error); showToast("Beheerrechten controleren mislukt (zie console, F12).", true); return; }
-        if (!data) { showToast("Dit account heeft geen beheerrechten.", true); return; }
+        if (!data) { showToast("Geen Brent.", true); return; }
         openAdminModal();
       } catch(e) {
         console.error(e);
-        showToast("Beheerrechten controleren mislukt.", true);
+        showToast("Geen Brent.", true);
       }
     }
 
@@ -1859,7 +1859,7 @@
           banner.textContent = "🔒 Voorspellingen zijn vergrendeld. Je kunt je keuzes niet meer aanpassen.";
           banner.className = "px-5 py-3.5 rounded-2xl text-sm font-bold border bg-slate-900 text-white border-slate-700";
         } else if (lockState.lock_at) {
-          banner.textContent = "⏳ Deadline: " + formatLockTime(lockState.lock_at) + ". Daarna worden voorspellingen vergrendeld.";
+          banner.textContent = "⏳ Deadline: " + formatLockTime(lockState.lock_at) + ". Daarna wordt de pronostiek vergrendeld.";
           banner.className = "px-5 py-3.5 rounded-2xl text-sm font-bold border bg-amber-50 text-amber-900 border-amber-200 dark:bg-amber-950/30 dark:text-amber-200 dark:border-amber-900";
         } else {
           banner.className = "hidden";
