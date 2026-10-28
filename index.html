@@ -379,7 +379,7 @@
       <div class="space-y-3 pt-6">
         <div>
           <h3 class="text-xl font-bold tracking-tight">Totaalklassement</h3>
-          <p class="text-sm text-slate-500 dark:text-zinc-400">Gewonnen punten over meerdere verkiezingen samen (stay tuned).</p>
+          <p class="text-sm text-slate-500 dark:text-zinc-400">Gewonnen punten over meerdere verkiezingen samen (stay tuned!).</p>
         </div>
         <div class="bg-white dark:bg-zinc-900 rounded-3xl border border-slate-200/90 dark:border-zinc-800 shadow-sm overflow-hidden">
           <div class="overflow-x-auto">
@@ -630,29 +630,29 @@
 
     const SENATE_BATTLEGROUNDS = [
       { id: 'TX', state: 'Texas', rep: 'Ken Paxton (R)', dem: 'James Talarico (D)', desc: 'Nek-aan-nek na voorverkiezing Paxton vs. Cornyn.' },
-      { id: 'NC', state: 'North Carolina', rep: 'Michael Whatley (R)', dem: 'Roy Cooper (D)', desc: 'Open seat na pensioen Thom Tillis; Cooper zeer populair.' },
+      { id: 'NC', state: 'North Carolina', rep: 'Michael Whatley (R)', dem: 'Roy Cooper (D)', desc: 'Open seat na pensioen Thom Tillis (R); Cooper zeer populair.' },
       { id: 'GA', state: 'Georgia', rep: 'Mike Collins (R)', dem: 'Jon Ossoff (D, inc)', desc: 'Ossoff verdedigt zijn nipte zetel in swing state Georgia.' },
       { id: 'ME', state: 'Maine', rep: 'Susan Collins (R, inc)', dem: 'Troy Jackson (D)', desc: 'Collins vecht voor herverkiezing in traditioneel blauw New England.' },
-      { id: 'MI', state: 'Michigan', rep: 'Mike Rogers (R)', dem: 'Abdul El-Sayed (D)', desc: 'Open seat na vertrek van Gary Peters in de Rust Belt.' },
+      { id: 'MI', state: 'Michigan', rep: 'Mike Rogers (R)', dem: 'Abdul El-Sayed (D)', desc: 'Open seat na vertrek van Gary Peters (D) in de Rust Belt.' },
       { id: 'OH', state: 'Ohio', rep: 'Jon Husted (R, inc)', dem: 'Sherrod Brown (D)', desc: 'Husted (opvolger JD Vance) vs. veteraan Brown.' },
-      { id: 'IA', state: 'Iowa', rep: 'Ashley Hinson (R)', dem: 'Josh Turek (D)', desc: 'Open seat na pensioen Joni Ernst; onverwacht close.' },
+      { id: 'IA', state: 'Iowa', rep: 'Ashley Hinson (R)', dem: 'Josh Turek (D)', desc: 'Open seat na pensioen Joni Ernst (R); onverwacht close.' },
       { id: 'AK', state: 'Alaska', rep: 'Dan Sullivan (R, inc)', dem: 'Mary Peltola (D)', desc: 'Ranked-choice voting geeft Peltola serieuze kans om zetel te kantelen.' },
       { id: 'KS', state: 'Kansas', rep: 'Roger Marshall (R, inc)', dem: 'Adam Hamilton (D)', desc: 'Hamilton verkleint marge drastisch in dieprood Kansas.' }
     ];
 
     const GOVERNOR_RACES = [
-      { id: 'GA_GOV', state: 'Georgia', stateId: 'GA', rep: 'Rick Jackson (R)', dem: 'Keisha Lance Bottoms (D)', desc: 'Kemp (R) termijnlimiet; Lance Bottoms wil winst.' },
+      { id: 'GA_GOV', state: 'Georgia', stateId: 'GA', rep: 'Rick Jackson (R)', dem: 'Lance Bottoms (D)', desc: 'Kemp (R) termijnlimiet; Lance Bottoms wil winst.' },
       { id: 'NV_GOV', state: 'Nevada', stateId: 'NV', rep: 'Joe Lombardo (R, inc)', dem: 'Aaron Ford (D)', desc: 'Gematigde Lombardo tegen procureur-generaal Ford.' },
       { id: 'WI_GOV', state: 'Wisconsin', stateId: 'WI', rep: 'Tom Tiffany (R)', dem: 'David Crowley (D)', desc: 'Tony Evers (D) vertrekt; fel gevecht in 50/50-staat.' },
-      { id: 'IA_GOV', state: 'Iowa', stateId: 'IA', rep: 'Zach Lahn (R)', dem: 'Rob Sand (D)', desc: 'Kim Reynolds vertrekt; Sand trekt onafhankelijken.' },
+      { id: 'IA_GOV', state: 'Iowa', stateId: 'IA', rep: 'Zach Lahn (R)', dem: 'Rob Sand (D)', desc: 'Kim Reynolds (R) vertrekt; Sand trekt onafhankelijken.' },
       { id: 'AZ_GOV', state: 'Arizona', stateId: 'AZ', rep: 'Andy Biggs (R)', dem: 'Katie Hobbs (D, inc)', desc: 'Hobbs verdedigt haar krappe marge tegen Biggs.' },
-      { id: 'OH_GOV', state: 'Ohio', stateId: 'OH', rep: 'Vivek Ramaswamy (R)', dem: 'Amy Acton (D)', desc: 'DeWine term-limited; Ramaswamy vs. Acton.' },
+      { id: 'OH_GOV', state: 'Ohio', stateId: 'OH', rep: 'Vivek Ramaswamy (R)', dem: 'Amy Acton (D)', desc: 'DeWine  (R)term-limited; Ramaswamy vs. Acton.' },
       { id: 'KS_GOV', state: 'Kansas', stateId: 'KS', rep: 'Ty Masterson (R)', dem: 'Cindy Holscher (D)', desc: 'Na 2 termijnen Kelly willen Republikeinen Kansas terug.' },
       { id: 'MI_GOV', state: 'Michigan', stateId: 'MI', rep: 'John James (R)', dem: 'Jocelyn Benson (D)', desc: 'Whitmer term-limited; topduel Benson vs. James.' }
     ];
 
     const HOUSE_DISTRICTS = [
-      { id: 'CA_22', district: 'Californië CA-22', rep: 'David Valadao (R)', dem: 'Rudy Salas (D)', desc: 'Central Valley; traditioneel zware Latino-opkomst.' },
+      { id: 'CA_22', district: 'Californië CA-22', rep: 'David Valadao (R)', dem: 'Rudy Salas (D)', desc: 'Central Valley; traditioneel hoge Latino-opkomst.' },
       { id: 'NY_19', district: 'New York NY-19', rep: 'Marc Molinaro (R)', dem: 'Josh Riley (D)', desc: 'Upstate Hudson Valley; beslissend swingdistrict.' },
       { id: 'PA_07', district: 'Pennsylvania PA-07', rep: 'Ryan Mackenzie (R)', dem: 'Susan Wild (D)', desc: 'Lehigh Valley arbeidersdistrict in de Rust Belt.' },
       { id: 'AZ_01', district: 'Arizona AZ-01', rep: 'David Schweikert (R)', dem: 'Amish Shah (D)', desc: 'Scottsdale & Phoenix buitenwijken.' },
@@ -1125,7 +1125,7 @@
         const allLeagues = new Set();
         users.forEach(u => (u.leagues || []).forEach(l => allLeagues.add(l)));
 
-        filterSelect.innerHTML = '<option value="ALL">Algemeen Klassement (Iedereen)</option>';
+        filterSelect.innerHTML = '<option value="ALL">Algemeen klassement</option>';
         allLeagues.forEach(l => {
           const opt = document.createElement('option');
           opt.value = l;
@@ -1603,7 +1603,7 @@
       }
 
       officialResults = newResults;
-      showToast("🏆 Officiële uitslag gepubliceerd! Punten zijn voor iedereen herberekend.");
+      showToast("🏆 Officiële uitslag gepubliceerd! Punten zijn voor iedereen berekend.");
       closeAdminModal();
       renderLeaderboard();
     }
